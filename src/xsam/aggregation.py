@@ -15,7 +15,7 @@ def aggregate_by_label(
         label_column (str): Label column to group by.
         weight_column (str): Weight column to use for weighted average.
         agg_column (str): Aggregation column to calculate the weighted average.
-        regex_dict (Optional[Dict[str, Dict[str, Tuple[str, int]]]], optional): Dictionary of regex patterns and multipliers. Defaults to None.
+        regex_dict (dict): Dictionary of regex patterns and multipliers. Defaults to None.
 
         regex_dict example:
         {
