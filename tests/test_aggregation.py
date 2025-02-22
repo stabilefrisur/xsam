@@ -1,5 +1,7 @@
 import pandas as pd
+
 from xsam.aggregation import aggregate_fields_by_label
+
 
 def test_aggregate_fields_by_label_with_regex() -> None:
     data = {
@@ -14,7 +16,9 @@ def test_aggregate_fields_by_label_with_regex() -> None:
         "B_group": {"long": ("B.*", 1), "short": ("B1", -1)},
         "C_group": {"long": ("C.*", 1), "short": ("C1", -1)},
     }
-    result = aggregate_fields_by_label(df, "id", "weight", ["value1", "value2"], label_regex=regex_dict)
+    result = aggregate_fields_by_label(
+        df, "id", "weight", ["value1", "value2"], label_regex=regex_dict
+    )
     print(result)
 
     test_result = pd.DataFrame(
@@ -26,6 +30,7 @@ def test_aggregate_fields_by_label_with_regex() -> None:
     )
     assert result.equals(test_result), f"Expected {test_result}, but got {result}"
 
+
 def test_aggregate_fields_by_label_with_label() -> None:
     data = {
         "id": ["A0", "B0", "C0", "A1", "B1", "C1", "A2", "B2", "C2"],
@@ -35,17 +40,20 @@ def test_aggregate_fields_by_label_with_label() -> None:
         "weight": [1, 2, 3, 4, 5, 6, 7, 8, 9],
     }
     df = pd.DataFrame(data)
-    result = aggregate_fields_by_label(df, "id", "weight", ["value1", "value2"], label_column="label")
+    result = aggregate_fields_by_label(
+        df, "id", "weight", ["value1", "value2"], label_column="label"
+    )
     print(result)
 
     test_result = pd.DataFrame(
         {
             "group": ["bar", "baz", "foo"],
-            "aggregated_value1": [890/15, 71.0, 54.0],
-            "aggregated_value2": [965/15, 76.0, 59.0],
+            "aggregated_value1": [890 / 15, 71.0, 54.0],
+            "aggregated_value2": [965 / 15, 76.0, 59.0],
         }
     )
     assert result.equals(test_result), f"Expected {test_result}, but got {result}"
+
 
 def test_aggregate_fields_by_label_no_label_no_regex() -> None:
     data = {
@@ -66,6 +74,7 @@ def test_aggregate_fields_by_label_no_label_no_regex() -> None:
         }
     )
     assert result.equals(test_result), f"Expected {test_result}, but got {result}"
+
 
 if __name__ == "__main__":
     test_aggregate_fields_by_label_with_regex()

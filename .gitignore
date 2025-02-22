@@ -1,5 +1,5 @@
 # Project specific
-sample_data
+output/
 *.log
 
 # Byte-compiled / optimized / DLL files
