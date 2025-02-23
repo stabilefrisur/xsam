@@ -1,6 +1,6 @@
 # XSAM
 
-XSAM is a Python package designed to assist with management and analysis of financial data. 
+XSAM is a Python package designed to assist with management and analysis of financial data.
 
 ## Installation
 
@@ -17,7 +17,7 @@ You can save a DataFrame, Series, dictionary, or Figure to a file using the `sav
 ```python
 from pathlib import Path
 import pandas as pd
-from aa_data_handler import save
+from xsam.output import save
 
 # Create a DataFrame
 df = pd.DataFrame({
@@ -57,35 +57,35 @@ save(df, 'data', 'csv', Path('data'))
 ### Loading Data
 You can load a DataFrame, Series, or dictionary from a file using the `load` function:
 ```python
-from aa_data_handler import load
+from xsam.input import load
 
 # Load the latest file in the log
-loaded_df = load(name='data')
+loaded_df = load(file_name='data')
 
 # Print the loaded DataFrame
 print(loaded_df)
 ```
 
 #### Arguments for `load`
-- `name` (str): The name of the file to load. If not provided, the function will search the log for the latest file.
+- `file_name` (str): The name of the file to load. If not provided, the function will search the log for the latest file.
 - `file_format` (str): The format of the file to load. Supported formats are 'csv', 'xlsx', and 'pickle'.
-- `file_path` (Path | str): The path to the file. If not provided, the function will search the log for the latest file.
+- `full_file_path` (Path | str): The path to the file. If not provided, the function will search the log for the latest file.
 - `log_id` (str): The unique file ID from the log file. If provided, the function will use this to locate the file.
 
 #### Examples
 1. **Load by Name:**
     ```python
-    loaded_df = load(name='data')
+    loaded_df = load(file_name='data')
     ```
 
 2. **Load by Name and Format:**
     ```python
-    loaded_df = load(name='data', file_format='csv')
+    loaded_df = load(file_name='data', file_format='csv')
     ```
 
-3. **Load by Name, Format, and Path:**
+3. **Load by Full File Path:**
     ```python
-    loaded_df = load(name='data', file_format='csv', file_path='data')
+    loaded_df = load(full_file_path='data/data.csv')
     ```
 
 4. **Load by Log ID:**

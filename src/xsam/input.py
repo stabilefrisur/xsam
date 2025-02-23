@@ -1,13 +1,14 @@
-import pandas as pd
 import pickle
-from pathlib import Path
-import os
 import re
+from pathlib import Path
 
-from xsam.logger import get_action_logger
+import pandas as pd
+
+from xsam.logger import ActionLogger, FileLogger
 
 # General logger for actions
-action_logger = get_action_logger("action_logger")
+action_logger = ActionLogger()
+file_logger = FileLogger("file_log.log")
 
 
 def load(
@@ -15,7 +16,6 @@ def load(
     file_format: str = None,
     full_file_path: Path | str = None,
     log_id: str = None,
-    log_path: Path | str = "file_log.log",
 ) -> pd.DataFrame | pd.Series | dict | None:
     """Load a DataFrame, Series, or dictionary from a file.
 
@@ -33,7 +33,8 @@ def load(
         ValueError: If the format is not supported.
         FileNotFoundError: If the specified path does not exist.
     """
-    log_entries = _read_log_entries(log_path)
+    logs = file_logger.get_logs()
+    log_entries = _parse_log_entries(logs)
 
     if full_file_path:
         return _load_from_full_path(full_file_path)
@@ -45,9 +46,10 @@ def load(
         raise ValueError("Insufficient parameters provided for loading the file.")
 
 
-def _load_from_full_path(full_path):
-    if os.path.exists(full_path):
-        return _load_file(full_path)
+def _load_from_full_path(full_path: Path | str):
+    path = Path(full_path)
+    if path.exists():
+        return _load_file(path)
     else:
         raise FileNotFoundError(f"The file {full_path} does not exist.")
 
@@ -74,43 +76,38 @@ def _load_from_log_id(log_entries, log_id):
     raise FileNotFoundError(f"No file found with log_id {log_id}.")
 
 
-def _load_file(full_path):
-    path = Path(full_path)
+def _load_file(full_path: Path | str):
+    path = Path(full_path)  # Ensure full_path is a Path object
     extension = path.suffix[1:]  # Remove the leading dot
     file_format = "pickle" if extension == "p" else extension
-    action_logger.info(f"Loading {file_format} from {full_path}")
+    action_logger.info(f"Loading {file_format} from {path}")
 
     if file_format == "csv":
-        return pd.read_csv(full_path)
+        return pd.read_csv(path)
     elif file_format == "xlsx":
-        return _load_excel(full_path)
+        return _load_excel(path)
     elif file_format == "pickle":
-        with open(full_path, "rb") as f:
+        with path.open("rb") as f:
             return pickle.load(f)
     else:
         raise ValueError(f"Unsupported format: {file_format}")
 
 
-def _read_log_entries(log_path: Path | str = "file_log.log") -> list[dict]:
-    log_path = Path(log_path)
-    if not log_path.exists():
-        action_logger.info(f"File log {log_path} does not exist.")
-        return []
-    log_entries = []
-    with open("file_log.log", "r") as log_file:
-        for line in log_file:
-            log_id, timestamp, full_path = line.strip().split(",")
-            full_path = Path(full_path)
-            file_format = full_path.suffix[1:]  # Remove the leading dot
-            log_entries.append(
-                {
-                    "log_id": log_id,
-                    "timestamp": timestamp,
-                    "full_path": str(full_path),
-                    "file_format": file_format,
-                }
-            )
-    return log_entries
+def _parse_log_entries(log_entries: list[str]) -> list[dict]:
+    parsed_entries = []
+    for entry in log_entries:
+        log_id, timestamp, full_path = entry.strip().split(" | ")
+        full_path = Path(full_path)
+        file_format = full_path.suffix[1:]  # Remove the leading dot
+        parsed_entries.append(
+            {
+                "log_id": log_id,
+                "timestamp": timestamp,
+                "full_path": str(full_path),
+                "file_format": file_format,
+            }
+        )
+    return parsed_entries
 
 
 def _load_excel(full_path: Path) -> pd.DataFrame | dict:

@@ -1,15 +1,16 @@
-import pandas as pd
 import pickle
-from pathlib import Path
-import matplotlib.pyplot as plt
-import uuid
 from datetime import datetime
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import pandas as pd
 
 from xsam.constants import TIMESTAMP_FORMAT
-from xsam.logger import get_file_logger, get_action_logger
+from xsam.logger import ActionLogger, FileLogger
 
-file_logger = get_file_logger("file_logger")
-action_logger = get_action_logger("action_logger")
+# Initialize loggers
+action_logger = ActionLogger()
+file_logger = FileLogger("file_log.log")
 
 def save(
     obj: pd.DataFrame | pd.Series | dict | plt.Figure,
@@ -38,8 +39,7 @@ def save(
     file_name = f"{timestamp}_{file_name}" if add_timestamp else file_name
     full_path = path / f"{file_name}.{extension}"
 
-    log_id = uuid.uuid4()
-    file_logger.info(f"{log_id},{timestamp},{full_path}")
+    file_logger.log_file_path(full_path)
     action_logger.info(f"Saving {type(obj).__name__} as {file_format} to {full_path}")
 
     if isinstance(obj, pd.DataFrame):

@@ -1,10 +1,10 @@
-from xsam.logger import get_action_logger
+from xsam.logger import ActionLogger
 
 
 def main():
     print("Welcome to the XSAM package!")
 
-    action_logger = get_action_logger("action_logger")
+    action_logger = ActionLogger()
     action_logger.info("Starting main function")
 
     run_tests = input("Would you like to run all tests? (y/n): ")
