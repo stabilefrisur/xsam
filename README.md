@@ -10,7 +10,26 @@ To install the package, use the following command:
 pip install xsam
 ```
 
+If you want to run the package's tests, install dev dependencies for pytest
+```sh
+pip install xsam[dev]
+pytest
+```
+
 ## Usage
+
+### Entry Point
+Run the main program like so
+
+```sh
+xsam
+```
+
+Or run the main module
+
+```sh
+python -m xsam.main
+```
 
 ### Saving Data
 You can save a DataFrame, Series, dictionary, or Figure to a file using the `save` function:
@@ -25,7 +44,7 @@ df = pd.DataFrame({
     'B': [4, 5, 6]
 })
 
-# Save the DataFrame to a CSV file
+# Save the DataFrame to a CSV filev
 save(df, 'data', 'csv', Path('data'))
 ```
 

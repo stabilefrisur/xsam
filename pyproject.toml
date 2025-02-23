@@ -5,7 +5,6 @@ requires-python = ">=3.10"
 dependencies = [
     "matplotlib>=3.10.0",
     "pandas[computation,excel,output-formatting,performance,plot]>=2.2.3",
-    "pytest>=8.3.4",
 ]
 authors = [
     {name = "Stabile Frisur", email = "stabilefrisur@proton.me"},
@@ -37,6 +36,11 @@ packages = ["src/xsam"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+]
 
 [project.scripts]
 xsam = "xsam.main:main"

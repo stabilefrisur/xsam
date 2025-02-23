@@ -1042,6 +1042,10 @@ source = { editable = "." }
 dependencies = [
     { name = "matplotlib" },
     { name = "pandas", extra = ["computation", "excel", "output-formatting", "performance", "plot"] },
+]
+
+[package.dev-dependencies]
+dev = [
     { name = "pytest" },
 ]
 
@@ -1049,5 +1053,7 @@ dependencies = [
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.0" },
     { name = "pandas", extras = ["computation", "excel", "output-formatting", "performance", "plot"], specifier = ">=2.2.3" },
-    { name = "pytest", specifier = ">=8.3.4" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.3.4" }]
