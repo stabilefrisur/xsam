@@ -17,7 +17,7 @@ def test_aggregate_fields_by_label_with_regex() -> None:
         "C_group": {"long": ("C.*", 1), "short": ("C1", -1)},
     }
     result = aggregate_fields_by_label(
-        df, "id", "weight", ["value1", "value2"], label_regex=regex_dict
+        df, "id", "weight", ["value1", "value2"], label_regex=regex_dict, method="wavg"
     )
     print(result)
 
@@ -41,7 +41,7 @@ def test_aggregate_fields_by_label_with_label() -> None:
     }
     df = pd.DataFrame(data)
     result = aggregate_fields_by_label(
-        df, "id", "weight", ["value1", "value2"], label_column="label"
+        df, "id", "weight", ["value1", "value2"], label_column="label", method="wavg"
     )
     print(result)
 
@@ -63,7 +63,7 @@ def test_aggregate_fields_by_label_no_label_no_regex() -> None:
         "weight": [1, 2, 3, 4, 5, 6, 7, 8, 9],
     }
     df = pd.DataFrame(data)
-    result = aggregate_fields_by_label(df, "id", "weight", ["value1", "value2"])
+    result = aggregate_fields_by_label(df, "id", "weight", ["value1", "value2"], method="wavg")
     print(result)
 
     test_result = pd.DataFrame(

@@ -9,6 +9,7 @@ def aggregate_fields_by_label(
     field_columns: list[str],
     label_column: str = None,
     label_regex: dict[str, dict[str, tuple[str, int]]] = None,
+    method: str = "sum",
 ) -> pd.DataFrame:
     """Aggregate values in a DataFrame by label, with optional regex matching and multipliers.
 
@@ -19,6 +20,13 @@ def aggregate_fields_by_label(
         field_columns (list[str]): List of field columns to be aggregated as weighted average by group.
         label_column (str): Column containing labels to use for grouping. Defaults to None.
         label_regex (dict): Dictionary of regex patterns and multipliers to use for grouping. Defaults to None.
+        method (str): Method to use for aggregation. Defaults to "sum".
+
+        method options:
+            "sum": Sum the values for each group. Use for count, market value, already weighted values.
+            "wsum": Sum the weighted values for each group. Use to calculate contribution to a total.
+            "avg": Average the values for each group. Use for equal weighting.
+            "wavg": Average the weighted values for each group. Use to calculate average contribution.
 
         label_regex example:
         {
@@ -37,11 +45,38 @@ def aggregate_fields_by_label(
     Returns:
         pd.DataFrame: DataFrame with aggregated values for each group.
     """
+    assert method in ["sum", "wsum", "avg", "wavg"], "Invalid aggregation method."
+
+    # Calculate sum for each group and subgroup
+    def calculate_sum(group: pd.DataFrame, field_column: str) -> float:
+        return group[field_column].sum()
+
+    # Calculate weighted sum for each group and subgroup
+    def calculate_wsum(group: pd.DataFrame, field_column: str) -> float:
+        return group[f"weighted_{field_column}"].sum()
+
+    # Calculate average for each group and subgroup
+    def calculate_avg(group: pd.DataFrame, field_column: str) -> float:
+        return group[field_column].mean()
+
+    # Calculate weighted average for each group and subgroup
+    def calculate_wavg(group: pd.DataFrame, field_column: str) -> float:
+        return group[f"weighted_{field_column}"].sum() / group[weight_column].sum()
+
+    method_dict = {
+        "sum": calculate_sum,
+        "wsum": calculate_wsum,
+        "avg": calculate_avg,
+        "wavg": calculate_wavg,
+    }
+
     # Check if label_regex and label_column are both provided
     if label_regex and label_column:
         raise ValueError(
             "Only one of 'label_regex' and 'label_column' should be provided."
         )
+
+    df = df.copy()
 
     if label_regex:
         # Create new columns 'group', 'subgroup', and 'multiplier' based on regex matching
@@ -78,18 +113,15 @@ def aggregate_fields_by_label(
     df = df.dropna(subset=["group"])
 
     # Calculate weighted value for each row and each field column
-    for field_column in field_columns:
-        df[f"weighted_{field_column}"] = df[field_column] * df[weight_column]
-
-    # Calculate weighted sum for each group and subgroup
-    def calculate_weighted_sum(group: pd.DataFrame, field_column: str) -> float:
-        return group[f"weighted_{field_column}"].sum() / group[weight_column].sum()
+    if method in ["wsum", "wavg"]:
+        for field_column in field_columns:
+            df[f"weighted_{field_column}"] = df[field_column] * df[weight_column]
 
     aggregated_dfs = []
     for field_column in field_columns:
         aggregated_df = (
             df.groupby(["group", "subgroup"])
-            .apply(calculate_weighted_sum, field_column, include_groups=False)
+            .apply(method_dict[method], field_column, include_groups=False)
             .reset_index()
         )
         aggregated_df.columns = ["group", "subgroup", f"aggregated_{field_column}"]
