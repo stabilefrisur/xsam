@@ -1,10 +1,12 @@
 [project]
 name = "xsam"
-version = "0.1.0"
+version = "0.1.1"
 requires-python = ">=3.10"
 dependencies = [
     "matplotlib>=3.10.0",
     "pandas[computation,excel,output-formatting,performance,plot]>=2.2.3",
+    "scikit-learn>=1.6.1",
+    "statsmodels>=0.14.4",
 ]
 authors = [
     {name = "Stabile Frisur", email = "stabilefrisur@proton.me"},
