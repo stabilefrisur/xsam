@@ -39,10 +39,10 @@ def estimate_parameters(
         beta_ols,
         sigma_C_ols,
     ) = estimate_parameters_ols(
-        data['oas'].values,
-        data['cvx'].values,
-        data['sigma_r'].values,
-        data['nu_r'].values,
+        data['oas'],
+        data['cvx'],
+        data['sigma_r'],
+        data['nu_r'],
         S_OAS_inf,
         C_CC,
         enable_convexity=complexity_params['enable_convexity'],
@@ -68,10 +68,10 @@ def estimate_parameters(
         beta_mle,
         sigma_C_mle,
     ) = estimate_parameters_mle(
-        data['oas'].values,
-        data['cvx'].values,
-        data['sigma_r'].values,
-        data['nu_r'].values,
+        data['oas'],
+        data['cvx'],
+        data['sigma_r'],
+        data['nu_r'],
         S_OAS_inf,
         C_CC,
         dt,
@@ -101,11 +101,11 @@ def perform_simulation(
     C_CC: float,
     seed: int,
     num_paths: int,
-    steps: int,
+    simulation_dates: pd.DatetimeIndex,
     complexity_params: dict,
 ):
     """Perform Monte Carlo simulation using the estimated parameters."""
-    dt = 1 / steps
+    dt = 1 / len(simulation_dates)
     kappa, gamma, sigma_O_0, delta, lambda_, beta, sigma_C = estimate_parameters(
         data, S_OAS_inf, C_CC, dt, complexity_params
     )
@@ -120,12 +120,12 @@ def perform_simulation(
         C_init,
         S_OAS_inf,
         C_CC,
-        sigma_r_forward.values,
-        nu_r_forward.values,
+        sigma_r_forward,
+        nu_r_forward,
+        simulation_dates,
         enable_convexity=complexity_params['enable_convexity'],
         enable_volatility=complexity_params['enable_volatility'],
         num_paths=num_paths,
-        steps=steps,
         seed=seed,
     )
 
@@ -142,32 +142,27 @@ def evaluate_frequency(
     C_CC: float,
     seed: int,
     num_paths: int,
-    steps: int,
+    simulation_dates: pd.DatetimeIndex,
     complexity_params: dict,
 ) -> list:
     """Evaluate model at different frequencies."""
-    # frequencies = {'daily': 1, 'weekly': 5, 'monthly': 21}
-    frequencies = {'daily': 'B', 'weekly': 'W-FRI', 'monthly': 'BME'}
+    frequencies = {'daily': 'B', 'weekly': 'W-FRI', 'monthly': 'BM'}
     results = {}
 
     for freq_name, freq in frequencies.items():
-        resampled_data = {k: v.asfreq('D').ffill().asfreq(freq) for k, v in data.items()}
-        # resampled_data = resample_data(data, freq)
-        # adjusted_steps = (
-        #     steps // freq_days
-        # )  # Adjust the number of steps according to the frequency
-        adjusted_steps = int(steps // (len(data['oas']) / len(resampled_data['oas'])))
+        resampled_data = {k: v.asfreq(freq).ffill() for k, v in data.items()}
+        resampled_dates = pd.date_range(start=simulation_dates[0], periods=len(resampled_data['oas']), freq=freq)
         paths_OAS, paths_C, paths_sigma_O = perform_simulation(
             resampled_data,
             S_OAS_init,
             C_init,
-            sigma_r_forward.asfreq('D').ffill().asfreq(freq),
-            nu_r_forward.asfreq('D').ffill().asfreq(freq),
+            sigma_r_forward.asfreq(freq).ffill(),
+            nu_r_forward.asfreq(freq).ffill(),
             S_OAS_inf,
             C_CC,
             seed,
             num_paths,
-            adjusted_steps,
+            resampled_dates,
             complexity_params,
         )
 
@@ -190,7 +185,7 @@ def evaluate_complexity(
     C_CC: float,
     seed: int,
     num_paths: int,
-    steps: int,
+    simulation_dates: pd.DatetimeIndex,
 ) -> list:
     """Evaluate model with different complexities."""
     complexities = {
@@ -212,7 +207,7 @@ def evaluate_complexity(
             C_CC,
             seed,
             num_paths,
-            steps,
+            simulation_dates,
             complexity_params,
         )
 
@@ -235,13 +230,13 @@ def evaluate_ols_vs_mle(
     C_CC: float,
     seed: int,
     num_paths: int,
-    steps: int,
+    simulation_dates: pd.DatetimeIndex,
     complexity_params: dict,
 ) -> dict:
     """Evaluate model using OLS vs OLS + MLE."""
     results = {}
 
-    dt = 1 / steps
+    dt = 1 / len(simulation_dates)
     (
         kappa_ols,
         gamma_ols,
@@ -251,10 +246,10 @@ def evaluate_ols_vs_mle(
         beta_ols,
         sigma_C_ols,
     ) = estimate_parameters_ols(
-        data['oas'].values,
-        data['cvx'].values,
-        data['sigma_r'].values,
-        data['nu_r'].values,
+        data['oas'],
+        data['cvx'],
+        data['sigma_r'],
+        data['nu_r'],
         S_OAS_inf,
         C_CC,
         enable_convexity=complexity_params['enable_convexity'],
@@ -278,12 +273,12 @@ def evaluate_ols_vs_mle(
         C_init,
         S_OAS_inf,
         C_CC,
-        sigma_r_forward.values,
-        nu_r_forward.values,
+        sigma_r_forward,
+        nu_r_forward,
+        simulation_dates,
         enable_convexity=complexity_params['enable_convexity'],
         enable_volatility=complexity_params['enable_volatility'],
         num_paths=num_paths,
-        steps=steps,
         seed=seed,
     )
 
@@ -296,10 +291,10 @@ def evaluate_ols_vs_mle(
         beta_mle,
         sigma_C_mle,
     ) = estimate_parameters_mle(
-        data['oas'].values,
-        data['cvx'].values,
-        data['sigma_r'].values,
-        data['nu_r'].values,
+        data['oas'],
+        data['cvx'],
+        data['sigma_r'],
+        data['nu_r'],
         S_OAS_inf,
         C_CC,
         dt,
@@ -333,12 +328,12 @@ def evaluate_ols_vs_mle(
         C_init,
         S_OAS_inf,
         C_CC,
-        sigma_r_forward.values,
-        nu_r_forward.values,
+        sigma_r_forward,
+        nu_r_forward,
+        simulation_dates,
         enable_convexity=complexity_params['enable_convexity'],
         enable_volatility=complexity_params['enable_volatility'],
         num_paths=num_paths,
-        steps=steps,
         seed=seed,
     )
 
@@ -400,19 +395,21 @@ def evaluate_model(
     S_OAS_inf = float(np.mean(oas_data[:-steps]))
     C_CC = float(np.mean(cvx_data[:-steps]))
 
-    frequency_results = evaluate_frequency(
-        in_sample_data,
-        S_OAS_init,
-        C_init,
-        sigma_r_forward,
-        nu_r_forward,
-        S_OAS_inf,
-        C_CC,
-        seed,
-        num_paths,
-        steps,
-        {'enable_convexity': True, 'enable_volatility': True},
-    )
+    simulation_dates = pd.date_range(start=oas_data.index[-steps], periods=steps, freq='B')
+
+    # frequency_results = evaluate_frequency(
+    #     in_sample_data,
+    #     S_OAS_init,
+    #     C_init,
+    #     sigma_r_forward,
+    #     nu_r_forward,
+    #     S_OAS_inf,
+    #     C_CC,
+    #     seed,
+    #     num_paths,
+    #     simulation_dates,
+    #     {'enable_convexity': True, 'enable_volatility': True},
+    # )
 
     complexity_results = evaluate_complexity(
         sample_data,
@@ -424,7 +421,7 @@ def evaluate_model(
         C_CC,
         seed,
         num_paths,
-        steps,
+        simulation_dates,
     )
 
     ols_vs_mle_results = evaluate_ols_vs_mle(
@@ -437,34 +434,29 @@ def evaluate_model(
         C_CC,
         seed,
         num_paths,
-        steps,
+        simulation_dates,
         {'enable_convexity': True, 'enable_volatility': True},
     )
 
     # Evaluate criteria for each result set
-    def extract_result(paths: list[np.ndarray]) -> pd.Series:
+    def extract_result(paths: list[pd.Series]) -> pd.Series:
         expected_path = pd.DataFrame(paths).T.mean(axis=1)
-        expected_path.index = out_index[::steps // len(expected_path)]
+        expected_path.index = simulation_dates
         return expected_path
     
     out_oas_data = oas_data.iloc[-steps:]
     out_cvx_data = cvx_data.iloc[-steps:]
-    out_index = out_oas_data.index
     
-    # frequency_oas = {k: extract_result(v[0]) for k, v in frequency_results.items()}
     complexity_oas = {k: extract_result(v[0]) for k, v in complexity_results.items()}
     ols_vs_mle_oas = {k: extract_result(v[0]) for k, v in ols_vs_mle_results.items()}
     oas_evaluation = {
-        # 'frequency': {k: evaluate_criteria(v, out_oas_data) for k, v in frequency_oas.items()},
         'complexity': {k: evaluate_criteria(v, out_oas_data) for k, v in complexity_oas.items()},
         'ols_vs_mle': {k: evaluate_criteria(v, out_oas_data) for k, v in ols_vs_mle_oas.items()},
     }
 
-    # frequency_cvx = {k: extract_result(v[1]) for k, v in frequency_results.items()}
     complexity_cvx = {k: extract_result(v[1]) for k, v in complexity_results.items()}
     ols_vs_mle_cvx = {k: extract_result(v[1]) for k, v in ols_vs_mle_results.items()}
     cvx_evaluation = {
-        # 'frequency': {k: evaluate_criteria(v, out_cvx_data) for k, v in frequency_cvx.items()},
         'complexity': {k: evaluate_criteria(v, out_cvx_data) for k, v in complexity_cvx.items()},
         'ols_vs_mle': {k: evaluate_criteria(v, out_cvx_data) for k, v in ols_vs_mle_cvx.items()},
     }
@@ -483,7 +475,7 @@ def evaluate_model(
     cvx_evaluation_df = flatten_evaluation(cvx_evaluation)
 
     return {
-        'frequency_results': frequency_results,
+        # 'frequency_results': frequency_results,
         'complexity_results': complexity_results,
         'ols_vs_mle_results': ols_vs_mle_results,
         'oas_evaluation': oas_evaluation_df,
@@ -523,7 +515,7 @@ if __name__ == '__main__':
 
     # Simulation parameters
     steps = 252  # Assuming 252 trading days in a year
-    num_paths = 1000  # Number of Monte Carlo paths
+    num_paths = 100  # Number of Monte Carlo paths
 
     # Perform model evaluation
     results = evaluate_model(
@@ -540,4 +532,3 @@ if __name__ == '__main__':
     print(f"OAS evaluation:\n{results['oas_evaluation']}")
     print(f"CVX evaluation:\n{results['cvx_evaluation']}")
     print("\nModel evaluation complete.")
-    

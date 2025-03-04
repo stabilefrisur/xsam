@@ -86,10 +86,10 @@ def main() -> None:
         beta_ols,
         sigma_C_ols,
     ) = estimate_parameters_ols(
-        oas_data.values,
-        cvx_data.values,
-        sigma_r_data.values,
-        nu_r_data.values,
+        oas_data,
+        cvx_data,
+        sigma_r_data,
+        nu_r_data,
         S_OAS_inf,
         C_CC,
         enable_convexity=enable_convexity,
@@ -117,10 +117,10 @@ def main() -> None:
         beta_mle,
         sigma_C_mle,
     ) = estimate_parameters_mle(
-        oas_data.values,
-        cvx_data.values,
-        sigma_r_data.values,
-        nu_r_data.values,
+        oas_data,
+        cvx_data,
+        sigma_r_data,
+        nu_r_data,
         S_OAS_inf,
         C_CC,
         dt,
@@ -130,10 +130,10 @@ def main() -> None:
     )
 
     # Monte Carlo simulation parameters
-    steps = project_num_days  # Assuming 252 trading days in a year
+    simulation_dates = pd.date_range(start=train_end_date, periods=project_num_days, freq=freq)
     S_OAS_init = float(oas_data.iloc[-1])
     C_init = float(cvx_data.iloc[-1])
-    num_paths = 1000  # Number of Monte Carlo paths
+    num_paths = 100  # Number of Monte Carlo paths
 
     # Create model instance with MLE parameters
     model = JointReversionModel(
@@ -158,12 +158,12 @@ def main() -> None:
         C_init,
         S_OAS_inf,
         C_CC,
-        sigma_r_forward.values,
-        nu_r_forward.values,
+        sigma_r_forward,
+        nu_r_forward,
+        simulation_dates,
         enable_convexity,
         enable_volatility,
         num_paths,
-        steps,
         seed,
     )
 
@@ -172,7 +172,7 @@ def main() -> None:
 
     # Plot OAS
     paths_OAS = pd.DataFrame(paths_OAS).T
-    paths_OAS.index = pd.date_range(start=oas_data.index[-1], periods=steps, freq='B')
+    paths_OAS.index = simulation_dates
     OAS = pd.concat([oas_data, paths_OAS], axis=1).mul(1e4)
     axs[0].plot(OAS.iloc[:, 0], color='darkblue', label='OAS')
     axs[0].plot(OAS.iloc[:, 1:], color='lightblue', alpha=0.1)
@@ -185,7 +185,7 @@ def main() -> None:
 
     # Plot Convexity
     paths_C = pd.DataFrame(paths_C).T
-    paths_C.index = pd.date_range(start=cvx_data.index[-1], periods=steps, freq='B')
+    paths_C.index = simulation_dates
     C = pd.concat([cvx_data, paths_C], axis=1).mul(1e4)
     axs[1].plot(C.iloc[:, 0], color='darkgreen', label='Convexity')
     axs[1].plot(C.iloc[:, 1:], color='lightgreen', alpha=0.1)

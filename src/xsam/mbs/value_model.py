@@ -72,13 +72,13 @@ class JointReversionModel:
         C_init: float,
         S_OAS_inf: float,
         C_CC: float,
-        sigma_r: np.ndarray,
-        nu_r: np.ndarray,
+        sigma_r: pd.Series,
+        nu_r: pd.Series,
+        simulation_dates: pd.DatetimeIndex,
         enable_convexity: bool = True,
         enable_volatility: bool = True,
-        steps: int = 252,
         rng: np.random.Generator = None,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[pd.Series, pd.Series, pd.Series]:
         """Simulate the joint reversion model for OAS and Convexity.
 
         Args:
@@ -86,71 +86,72 @@ class JointReversionModel:
             C_init (float): Initial value of Convexity.
             S_OAS_inf (float): Long-term mean of OAS spread.
             C_CC (float): Convexity of the current coupon bond (or TBA).
-            sigma_r (np.ndarray): Volatility of interest rates.
-            nu_r (np.ndarray): Volatility of volatility of interest rates.
+            sigma_r (pd.Series): Volatility of interest rates.
+            nu_r (pd.Series): Volatility of volatility of interest rates.
+            simulation_dates (pd.DatetimeIndex): Dates for the simulation.
             enable_convexity (bool, optional): Enable convexity interaction. Defaults to True.
             enable_volatility (bool, optional): Enable interest rate interaction. Defaults to True.
-            steps (int, optional): Number of time steps. Defaults to 252.
             rng (np.random.Generator, optional): Random number generator. Defaults to None.
 
         Returns:
-            tuple[np.ndarray, np.ndarray, np.ndarray]: Simulated OAS, Convexity, and Volatility of OAS.
+            tuple[pd.Series, pd.Series, pd.Series]: Simulated OAS, Convexity, and Volatility of OAS.
         """
         if rng is None:
             rng = np.random.default_rng()
 
-        S_OAS = np.zeros(steps)
-        C = np.zeros(steps)
-        sigma_O = np.zeros(steps)
-        S_OAS[0] = S_OAS_init
-        C[0] = C_init
-        sigma_O[0] = np.sqrt(self.sigma_O_0**2 + self.delta * C_init**2)
+        steps = len(simulation_dates)
+        S_OAS = pd.Series(index=simulation_dates)
+        C = pd.Series(index=simulation_dates)
+        sigma_O = pd.Series(index=simulation_dates)
+        S_OAS.iloc[0] = S_OAS_init
+        C.iloc[0] = C_init
+        sigma_O.iloc[0] = np.sqrt(self.sigma_O_0**2 + self.delta * C_init**2)
 
         for t in range(1, steps):
             Z_O = rng.normal()
             Z_C = rng.normal()
 
             if enable_convexity:
-                gamma_term = self.gamma[0] * float(C[t - 1])
-                beta_term = self.beta[0] * float(S_OAS[t - 1])
+                gamma_term = self.gamma[0] * float(C.iloc[t - 1])
+                beta_term = self.beta[0] * float(S_OAS.iloc[t - 1])
             else:
                 gamma_term = 0
                 beta_term = 0
 
             if enable_volatility:
                 gamma_term += (
-                    self.gamma[1] * float(sigma_r[t - 1]) 
-                    + self.gamma[2] * float(nu_r[t - 1])
+                    self.gamma[1] * float(sigma_r.iloc[t - 1]) 
+                    + self.gamma[2] * float(nu_r.iloc[t - 1])
                 )
                 beta_term += (
-                    self.beta[1] * float(sigma_r[t - 1]) 
-                    + self.beta[2] * float(nu_r[t - 1])
+                    self.beta[1] * float(sigma_r.iloc[t - 1]) 
+                    + self.beta[2] * float(nu_r.iloc[t - 1])
                 )
 
-            S_OAS[t] = (
-                float(S_OAS[t - 1])
-                + self.kappa * (S_OAS_inf - float(S_OAS[t - 1])) * self.dt
+            S_OAS.iloc[t] = (
+                float(S_OAS.iloc[t - 1])
+                + self.kappa * (S_OAS_inf - float(S_OAS.iloc[t - 1])) * self.dt
                 + gamma_term * self.dt
-                + sigma_O[t - 1] * np.sqrt(self.dt) * Z_O
+                + sigma_O.iloc[t - 1] * np.sqrt(self.dt) * Z_O
             )
 
-            C[t] = (
-                float(C[t - 1])
-                + self.lambda_ * (C_CC - float(C[t - 1])) * self.dt
+            C.iloc[t] = (
+                float(C.iloc[t - 1])
+                + self.lambda_ * (C_CC - float(C.iloc[t - 1])) * self.dt
                 + beta_term * self.dt
                 + self.sigma_C * np.sqrt(self.dt) * Z_C
             )
 
-            sigma_O[t] = np.sqrt(self.sigma_O_0**2 + self.delta * C[t]**2)
+            sigma_O.iloc[t] = np.sqrt(self.sigma_O_0**2 + self.delta * C.iloc[t]**2)
 
         return S_OAS, C, sigma_O
 
 
 def estimate_parameters_ols(
-    S_OAS: np.ndarray,
-    C: np.ndarray,
-    sigma_r: np.ndarray,
-    nu_r: np.ndarray,
+    S_OAS: pd.Series,
+    C: pd.Series,
+    sigma_r: pd.Series,
+    nu_r: pd.Series,
     S_OAS_inf: float,
     C_CC: float,
     initial_guess: tuple[float, float] = (0.05, 0.2),
@@ -161,10 +162,10 @@ def estimate_parameters_ols(
     """Estimate the parameters of the joint reversion model using OLS.
 
     Args:
-        S_OAS (np.ndarray): OAS spread time series.
-        C (np.ndarray): Convexity time series.
-        sigma_r (np.ndarray): Volatility of interest rates time series.
-        nu_r (np.ndarray): Volatility of volatility of interest rates time series.
+        S_OAS (pd.Series): OAS spread time series.
+        C (pd.Series): Convexity time series.
+        sigma_r (pd.Series): Volatility of interest rates time series.
+        nu_r (pd.Series): Volatility of volatility of interest rates time series.
         S_OAS_inf (float): Long-term mean of OAS spread.
         C_CC (float): Convexity of the current coupon bond (or TBA).
         initial_guess (tuple[float, float], optional): Initial guess for the residual variance parameters. Defaults to (0.05, 0.2).
@@ -175,6 +176,12 @@ def estimate_parameters_ols(
     Returns:
         tuple[float, list[float], float, float, float, list[float], float]: Estimated parameters.
     """
+    # Convert pd.Series to np.ndarray for better performance
+    S_OAS = S_OAS.values
+    C = C.values
+    sigma_r = sigma_r.values
+    nu_r = nu_r.values
+
     # Mean Reversion Parameter Estimation using OLS
     X_OAS = [S_OAS_inf - S_OAS[:-1]]
     X_C = [C_CC - C[:-1]]
@@ -255,10 +262,10 @@ def estimate_parameters_ols(
 
 
 def estimate_parameters_mle(
-    S_OAS: np.ndarray,
-    C: np.ndarray,
-    sigma_r: np.ndarray,
-    nu_r: np.ndarray,
+    S_OAS: pd.Series,
+    C: pd.Series,
+    sigma_r: pd.Series,
+    nu_r: pd.Series,
     S_OAS_inf: float,
     C_CC: float,
     dt: float,
@@ -270,10 +277,10 @@ def estimate_parameters_mle(
     """Estimate the parameters of the joint reversion model using MLE.
 
     Args:
-        S_OAS (np.ndarray): OAS spread time series.
-        C (np.ndarray): Convexity time series.
-        sigma_r (np.ndarray): Volatility of interest rates time series.
-        nu_r (np.ndarray): Volatility of volatility of interest rates time series.
+        S_OAS (pd.Series): OAS spread time series.
+        C (pd.Series): Convexity time series.
+        sigma_r (pd.Series): Volatility of interest rates time series.
+        nu_r (pd.Series): Volatility of volatility of interest rates time series.
         S_OAS_inf (float): Long-term mean of OAS spread.
         C_CC (float): Convexity of the current coupon bond (or TBA).
         dt (float): Time step size.
@@ -287,6 +294,11 @@ def estimate_parameters_mle(
     """
     if initial_guess is None:
         initial_guess = tuple([0.1] * 11)
+
+    S_OAS = S_OAS.values
+    C = C.values
+    sigma_r = sigma_r.values
+    nu_r = nu_r.values
 
     def log_likelihood(params):
         kappa = params[0]
@@ -439,18 +451,18 @@ def monte_carlo_simulation(
     C_init: float,
     S_OAS_inf: float,
     C_CC: float,
-    sigma_r: float | np.ndarray,
-    nu_r: float | np.ndarray,
+    sigma_r: float | pd.Series,
+    nu_r: float | pd.Series,
+    simulation_dates: pd.DatetimeIndex,
     enable_convexity: bool = True,
     enable_volatility: bool = True,
     num_paths: int = 1000,
-    steps: int = 252,
     seed: int = None,
     verbose: bool = True,
 ) -> tuple[
-    list[np.ndarray],
-    list[np.ndarray],
-    list[np.ndarray],
+    list[pd.Series],
+    list[pd.Series],
+    list[pd.Series],
 ]:
     """Perform Monte Carlo simulation of the Joint Reversion Model.
 
@@ -458,16 +470,17 @@ def monte_carlo_simulation(
         model (JointReversionModel): Joint Reversion Model instance.
         S_OAS_init (float): Initial value of OAS spread.
         C_init (float): Initial value of Convexity.
-        S_OAS_inf (float): Long-term mean of OAS spread.
         C_CC (float): Convexity of the current coupon bond (or TBA).
-        sigma_r (float | np.ndarray): Volatility of interest rates.
-        nu_r (float | np.ndarray): Volatility of volatility of interest rates.
+        sigma_r (float | pd.Series): Volatility of interest rates.
+        nu_r (float | pd.Series): Volatility of volatility of interest rates.
+        simulation_dates (pd.DatetimeIndex): Dates for the simulation.
+        enable_convexity (bool, optional): Enable convexity interaction. Defaults to True.
+        enable_volatility (bool, optional): Enable interest rate interaction. Defaults to True.
         num_paths (int): Number of Monte Carlo paths.
-        steps (int): Number of time steps.
         seed (int, optional): Random seed for reproducibility. Defaults to None.
 
     Returns:
-        tuple[list[np.ndarray], tuple[list[np.ndarray], list[np.ndarray]]: Monte Carlo paths for OAS, Convexity, and Volatility of OAS.
+        tuple[list[pd.Series], list[pd.Series], list[pd.Series]]: Monte Carlo paths for OAS, Convexity, and Volatility of OAS.
 
     The Monte Carlo simulation generates multiple paths of the OAS spread, Convexity, and Volatility of OAS using the Joint Reversion Model.
     The expected value of OAS, Convexity, and Volatility of OAS can be calculated as the average of the simulated paths.
@@ -486,8 +499,17 @@ def monte_carlo_simulation(
     paths_C = []
     paths_sigma_O = []
 
-    sigma_r_series = np.full(steps, sigma_r) if isinstance(sigma_r, float) else sigma_r
-    nu_r_series = np.full(steps, nu_r) if isinstance(nu_r, float) else nu_r
+    steps = len(simulation_dates)
+
+    if isinstance(sigma_r, float):
+        sigma_r_series = pd.Series(np.full(steps, sigma_r), index=simulation_dates)
+    else:
+        sigma_r_series = sigma_r
+
+    if isinstance(nu_r, float):
+        nu_r_series = pd.Series(np.full(steps, nu_r), index=simulation_dates)
+    else:
+        nu_r_series = nu_r
 
     rng = np.random.default_rng(seed)
 
@@ -499,9 +521,9 @@ def monte_carlo_simulation(
             C_CC,
             sigma_r_series,
             nu_r_series,
+            simulation_dates,
             enable_convexity,
             enable_volatility,
-            steps,
             rng,
         )
         paths_OAS.append(S_OAS)
@@ -510,13 +532,13 @@ def monte_carlo_simulation(
 
     if verbose:
         print(
-            f'Final expected value of OAS: {np.mean(paths_OAS, axis=0)[-1] * 1e4:.0f} bps'
+            f'Final expected value of OAS: {np.mean([path.iloc[-1] for path in paths_OAS]) * 1e4:.0f} bps'
         )
         print(
-            f'Final expected value of Convexity: {np.mean(paths_C, axis=0)[-1] * 1e4:.0f} bps'
+            f'Final expected value of Convexity: {np.mean([path.iloc[-1] for path in paths_C]) * 1e4:.0f} bps'
         )
         print(
-            f'Final expected value of Sigma_O: {np.mean(paths_sigma_O, axis=0)[-1] * 1e4:.0f} bps'
+            f'Final expected value of Sigma_O: {np.mean([path.iloc[-1] for path in paths_sigma_O]) * 1e4:.0f} bps'
         )
 
     return (
