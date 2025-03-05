@@ -459,11 +459,7 @@ def monte_carlo_simulation(
     num_paths: int = 1000,
     seed: int = None,
     verbose: bool = True,
-) -> tuple[
-    list[pd.Series],
-    list[pd.Series],
-    list[pd.Series],
-]:
+) -> dict[str, pd.DataFrame]:
     """Perform Monte Carlo simulation of the Joint Reversion Model.
 
     Args:
@@ -480,7 +476,7 @@ def monte_carlo_simulation(
         seed (int, optional): Random seed for reproducibility. Defaults to None.
 
     Returns:
-        tuple[list[pd.Series], list[pd.Series], list[pd.Series]]: Monte Carlo paths for OAS, Convexity, and Volatility of OAS.
+        dict[str, pd.DataFrame]: Simulated paths of OAS, Convexity, and Volatility of OAS.
 
     The Monte Carlo simulation generates multiple paths of the OAS spread, Convexity, and Volatility of OAS using the Joint Reversion Model.
     The expected value of OAS, Convexity, and Volatility of OAS can be calculated as the average of the simulated paths.
@@ -541,8 +537,8 @@ def monte_carlo_simulation(
             f'Final expected value of Sigma_O: {np.mean([path.iloc[-1] for path in paths_sigma_O]) * 1e4:.0f} bps'
         )
 
-    return (
-        paths_OAS,
-        paths_C,
-        paths_sigma_O,
-    )
+    return {
+        'oas': pd.DataFrame(paths_OAS).T,
+        'cvx': pd.DataFrame(paths_C).T,
+        'sigma_o': pd.DataFrame(paths_sigma_O).T,
+    }
