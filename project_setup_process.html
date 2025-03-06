@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/4.0.0/github-markdown.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/default.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/markdown-it-texmath/css/texmath.min.css">
+<link rel="stylesheet" href="file:///c:\Users\ROG3003\.vscode\extensions\goessner.mdmath-2.7.4\themes\default\style.css">
+
+</head>
+<body class="markdown-body">
+<h1 dir="auto" id="python-project-with-uv-and-git">Python Project with UV and Git</h1>
+<p dir="auto">Open a Git Bash terminal.</p>
+<h2 dir="auto" id="initialise-the-project">Initialise the project</h2>
+<p dir="auto">A folder with a pyproject.toml is recognised as a project</p>
+<pre><code class="code-line language-bash" dir="auto">uv init my_project --python 3.10
+<span class="hljs-built_in">cd</span> my_project
+</code></pre>
+<p dir="auto">Take a look at the project</p>
+<pre><code class="code-line language-bash" dir="auto"><span class="hljs-built_in">ls</span> -a
+<span class="hljs-built_in">cat</span> pyproject.toml
+</code></pre>
+<h2 dir="auto" id="create-a-virtual-environment">Create a virtual environment</h2>
+<p dir="auto">Install the Python version in .python-version</p>
+<pre><code class="code-line language-bash" dir="auto">uv venv
+</code></pre>
+<p dir="auto">If a different Python version is required</p>
+<pre><code class="code-line language-bash" dir="auto">uv venv --python 3.13
+</code></pre>
+<p dir="auto">Activate the virtual environment</p>
+<pre><code class="code-line language-bash" dir="auto"><span class="hljs-built_in">source</span> .venv/scripts/activate
+</code></pre>
+<p dir="auto">Check that main.py can be executed</p>
+<pre><code class="code-line language-bash" dir="auto">uv run main.py
+</code></pre>
+<p dir="auto">Make source code directory and move main.py</p>
+<pre><code class="code-line language-bash" dir="auto"><span class="hljs-built_in">mkdir</span> -p src/my_project
+<span class="hljs-built_in">mv</span> main.py src/my_project/main.py
+</code></pre>
+<p dir="auto">Add the build system to pyproject.toml</p>
+<pre><code class="code-line language-bash" dir="auto"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;[build-system]&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;requires = [&quot;hatchling&quot;]&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;build-backend = &quot;hatchling.build&quot;&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;[tool.hatch.build.targets.wheel]&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;packages = [&quot;src/my_project&quot;]&#x27;</span> &gt;&gt; pyproject.toml
+</code></pre>
+<h2 dir="auto" id="add-project-dependencies">Add project dependencies</h2>
+<p dir="auto">UV will automatically install dependencies and add them to pyproject.toml</p>
+<pre><code class="code-line language-bash" dir="auto">uv add plotly scikit-learn <span class="hljs-string">&quot;pandas[computation,excel,output-formatting,performance,plot]&quot;</span>
+</code></pre>
+<p dir="auto">Remove dependencies like so</p>
+<pre><code class="code-line language-bash" dir="auto">uv remove matplotlib
+</code></pre>
+<p dir="auto">Add optional developer dependencies</p>
+<pre><code class="code-line language-bash" dir="auto">uv add --dev pytest
+```bash
+
+Check that pyproject.toml has been updated
+```bash
+<span class="hljs-built_in">cat</span> pyproject.toml
+</code></pre>
+<p dir="auto">Check if the dependencies were installed in venv</p>
+<pre><code class="code-line language-bash" dir="auto">uv pip list
+</code></pre>
+<h2 dir="auto" id="create-a-git-and-github-repository">Create a Git and GitHub repository</h2>
+<p dir="auto">UV already created a .git directory; to re-initialise</p>
+<pre><code class="code-line language-bash" dir="auto">git init
+</code></pre>
+<p dir="auto">Check that you're on the master branch with no commits yet and all files untracked</p>
+<pre><code class="code-line language-bash" dir="auto">git status
+</code></pre>
+<p dir="auto">Stage all files</p>
+<pre><code class="code-line language-bash" dir="auto">git add .
+</code></pre>
+<p dir="auto">Make initial commit</p>
+<pre><code class="code-line language-bash" dir="auto">uv <span class="hljs-built_in">sync</span>
+git commit -m <span class="hljs-string">&quot;initial commit&quot;</span>
+</code></pre>
+<p dir="auto">Go to <a href="https://github.com/stabilefrisur?tab=repositories">https://github.com/stabilefrisur?tab=repositories</a> to add a new GitHub repository my_project</p>
+<p dir="auto">Establish the remote connection</p>
+<pre><code class="code-line language-bash" dir="auto">git remote add origin https://github.com/stabilefrisur/my_project.git
+</code></pre>
+<p dir="auto">Push to GitHub</p>
+<pre><code class="code-line language-bash" dir="auto">git branch -M master
+git push -u origin master
+</code></pre>
+<h2 dir="auto" id="register-and-run-mainpy">Register and run main.py</h2>
+<p dir="auto">Register an entry point to the package</p>
+<pre><code class="code-line language-bash" dir="auto"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;[project.scripts]&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;my_project = &quot;my_project.main:main&quot;&#x27;</span> &gt;&gt; pyproject.toml
+</code></pre>
+<p dir="auto">Install the package in editable mode</p>
+<pre><code class="code-line language-bash" dir="auto">uv pip install -e .
+</code></pre>
+<p dir="auto">The local package will now be listed in pip</p>
+<pre><code class="code-line language-bash" dir="auto">uv pip list
+</code></pre>
+<p dir="auto">Run the main program which is now registered under my_project</p>
+<pre><code class="code-line language-bash" dir="auto">uv run my_project
+</code></pre>
+<h2 dir="auto" id="configure-and-run-pytest">Configure and run pytest</h2>
+<p dir="auto">Make tests directory for pytest</p>
+<pre><code class="code-line language-bash" dir="auto"><span class="hljs-built_in">mkdir</span> tests
+</code></pre>
+<p dir="auto">Add the tests path to pyproject.toml</p>
+<pre><code class="code-line language-bash" dir="auto"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;[tool.pytest.ini_options]&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;pythonpath = &quot;src&quot;&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;testpaths = &quot;tests&quot;&#x27;</span> &gt;&gt; pyproject.toml
+</code></pre>
+<p dir="auto">Run pytest</p>
+<pre><code class="code-line language-bash" dir="auto">pytest
+</code></pre>
+<h2 dir="auto" id="build-and-publish-the-package">Build and publish the package</h2>
+<p dir="auto">Update the project environment</p>
+<pre><code class="code-line language-bash" dir="auto">uv <span class="hljs-built_in">sync</span>
+</code></pre>
+<p dir="auto">Build Python packages into source distributions and wheels</p>
+<pre><code class="code-line language-bash" dir="auto">uv build
+</code></pre>
+<p dir="auto">Commit changes and push to GitHub before publishing</p>
+<pre><code class="code-line language-bash" dir="auto">git add .
+git commit -m <span class="hljs-string">&quot;MESSAGE&quot;</span>
+git push -u origin master
+</code></pre>
+<p dir="auto">Upload distributions to an index; input PyPi credentials</p>
+<pre><code class="code-line language-bash" dir="auto">uv publish
+</code></pre>
+<p dir="auto">Verify that the package is published on PyPi:
+<a href="https://pypi.org/project/my_project/">https://pypi.org/project/my_project/</a></p>
+<h2 dir="auto" id="test-the-package-installation">Test the package installation</h2>
+<p dir="auto">Create a test environment</p>
+<pre><code class="code-line language-bash" dir="auto">python -m venv test_env
+<span class="hljs-built_in">source</span> test_env/scripts/activate
+</code></pre>
+<p dir="auto">Install the package and check that it's listed</p>
+<pre><code class="code-line language-bash" dir="auto">pip install my_project
+pip list
+pip show my_project
+</code></pre>
+<p dir="auto">Import the package and run its entry point in a Python shell</p>
+<pre><code class="code-line language-bash" dir="auto">python
+&gt;&gt;&gt; import my_project
+&gt;&gt;&gt; my_project.main()
+</code></pre>
+<p dir="auto">Alternatively, run the main program as a module</p>
+<pre><code class="code-line language-bash" dir="auto">python -m my_project.main
+</code></pre>
+<p dir="auto">If the main module is registered in pyproject.toml, just run</p>
+<pre><code class="code-line language-bash" dir="auto">my_project
+</code></pre>
+
+</body>
+</html>
