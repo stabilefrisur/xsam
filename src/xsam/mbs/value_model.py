@@ -528,13 +528,13 @@ def monte_carlo_simulation(
 
     if verbose:
         print(
-            f'Final expected value of OAS: {np.mean([path.iloc[-1] for path in paths_OAS]) * 1e4:.0f} bps'
+            f'Final expected value of OAS: {np.mean([path.iloc[-1] for path in paths_OAS]):.0f} bps'
         )
         print(
-            f'Final expected value of Convexity: {np.mean([path.iloc[-1] for path in paths_C]) * 1e4:.0f} bps'
+            f'Final expected value of Convexity: {np.mean([path.iloc[-1] for path in paths_C]):.0f} bps'
         )
         print(
-            f'Final expected value of Sigma_O: {np.mean([path.iloc[-1] for path in paths_sigma_O]) * 1e4:.0f} bps'
+            f'Final expected value of Sigma_O: {np.mean([path.iloc[-1] for path in paths_sigma_O]):.0f} bps'
         )
 
     return {
