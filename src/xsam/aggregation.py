@@ -5,11 +5,12 @@ import re
 def aggregate_fields_by_label(
     df: pd.DataFrame,
     id_column: str,
-    weight_column: str,
-    field_columns: list[str],
+    weight_column: str = None,
+    field_columns: list[str] = None,
     label_column: str = None,
     label_regex: dict[str, dict[str, tuple[str, int]]] = None,
     method: str = "sum",
+    preliminary: bool = False,
 ) -> pd.DataFrame:
     """Aggregate values in a DataFrame by label, with optional regex matching and multipliers.
 
@@ -21,6 +22,7 @@ def aggregate_fields_by_label(
         label_column (str): Column containing labels to use for grouping. Defaults to None.
         label_regex (dict): Dictionary of regex patterns and multipliers to use for grouping. Defaults to None.
         method (str): Method to use for aggregation. Defaults to "sum".
+        preliminary (bool): Whether to return the DataFrame before summing the values for each group. Defaults to False.
 
         method options:
             "sum": Sum the values for each group. Use for count, market value, already weighted values.
@@ -43,9 +45,39 @@ def aggregate_fields_by_label(
         }
 
     Returns:
-        pd.DataFrame: DataFrame with aggregated values for each group.
+        pd.DataFrame: DataFrame with aggregated values for each group. Index is the group column. Columns are the field columns.
     """
+    # Assert that the required columns are present
+    assert id_column in df.columns, f"Column '{id_column}' not found in DataFrame."
+    if weight_column:
+        assert weight_column in df.columns, (
+            f"Column '{weight_column}' not found in DataFrame."
+        )
+    if field_columns:
+        for field_column in field_columns:
+            assert field_column in df.columns, (
+                f"Column '{field_column}' not found in DataFrame."
+            )
+    if label_column:
+        assert label_column in df.columns, (
+            f"Column '{label_column}' not found in DataFrame."
+        )
+
+    # # Assert that either label_regex or label_column but not both are provided
+    # assert (label_regex is None) != (label_column is None), (
+    #     "Either 'label_regex' or 'label_column' should be provided."
+    # )
+
+    # Assert that method is valid
     assert method in ["sum", "wsum", "avg", "wavg"], "Invalid aggregation method."
+
+    # Assert that weight column is provided for weighted methods
+    if method in ["wsum", "wavg"]:
+        assert weight_column, "Weight column must be provided for weighted methods."
+
+    # If no field columns are provided, use all columns that are numerical
+    if not field_columns:
+        field_columns = df.select_dtypes(include="number").columns.tolist()
 
     # Calculate sum for each group and subgroup
     def calculate_sum(group: pd.DataFrame, field_column: str) -> float:
@@ -53,7 +85,7 @@ def aggregate_fields_by_label(
 
     # Calculate weighted sum for each group and subgroup
     def calculate_wsum(group: pd.DataFrame, field_column: str) -> float:
-        return group[f"weighted_{field_column}"].sum()
+        return group[f"Weighted_{field_column}"].sum()
 
     # Calculate average for each group and subgroup
     def calculate_avg(group: pd.DataFrame, field_column: str) -> float:
@@ -61,7 +93,7 @@ def aggregate_fields_by_label(
 
     # Calculate weighted average for each group and subgroup
     def calculate_wavg(group: pd.DataFrame, field_column: str) -> float:
-        return group[f"weighted_{field_column}"].sum() / group[weight_column].sum()
+        return group[f"Weighted_{field_column}"].sum() / group[weight_column].sum()
 
     method_dict = {
         "sum": calculate_sum,
@@ -70,12 +102,7 @@ def aggregate_fields_by_label(
         "wavg": calculate_wavg,
     }
 
-    # Check if label_regex and label_column are both provided
-    if label_regex and label_column:
-        raise ValueError(
-            "Only one of 'label_regex' and 'label_column' should be provided."
-        )
-
+    # Create a copy of the DataFrame to avoid modifying the original
     df = df.copy()
 
     if label_regex:
@@ -95,41 +122,41 @@ def aggregate_fields_by_label(
             matches = match_label(row[id_column])
             for match in matches:
                 new_row = row.copy()
-                new_row["group"], new_row["subgroup"], new_row["multiplier"] = match
+                new_row["Group"], new_row["Subgroup"], new_row["Multiplier"] = match
                 expanded_rows.append(new_row)
         df = pd.DataFrame(expanded_rows)
     elif label_column:
         # Use the label column as the group and set subgroup as 'default' with multiplier 1
-        df["group"] = df[label_column]
-        df["subgroup"] = "default"
-        df["multiplier"] = 1
+        df["Group"] = df[label_column]
+        df["Subgroup"] = "Default"
+        df["Multiplier"] = 1
     else:
         # Use the id column as the group and set subgroup as 'default' with multiplier 1
-        df["group"] = df[id_column]
-        df["subgroup"] = "default"
-        df["multiplier"] = 1
+        df["Group"] = df[id_column]
+        df["Subgroup"] = "Default"
+        df["Multiplier"] = 1
 
     # Drop rows where 'group' is None (no match found)
-    df = df.dropna(subset=["group"])
+    df = df.dropna(subset=["Group"])
 
     # Calculate weighted value for each row and each field column
     if method in ["wsum", "wavg"]:
         for field_column in field_columns:
-            df[f"weighted_{field_column}"] = df[field_column] * df[weight_column]
+            df[f"Weighted_{field_column}"] = df[field_column] * df[weight_column]
 
     aggregated_dfs = []
     for field_column in field_columns:
         aggregated_df = (
-            df.groupby(["group", "subgroup"])
+            df.groupby(["Group", "Subgroup"], observed=True)
             .apply(method_dict[method], field_column, include_groups=False)
             .reset_index()
         )
-        aggregated_df.columns = ["group", "subgroup", f"aggregated_{field_column}"]
+        aggregated_df.columns = ["Group", "Subgroup", field_column]
         aggregated_dfs.append(aggregated_df)
 
     final_df = aggregated_dfs[0]
     for aggregated_df in aggregated_dfs[1:]:
-        final_df = final_df.merge(aggregated_df, on=["group", "subgroup"])
+        final_df = final_df.merge(aggregated_df, on=["Group", "Subgroup"])
 
     if label_regex:
         # Create a unique index for the subgroup multipliers
@@ -141,12 +168,32 @@ def aggregate_fields_by_label(
 
         # Apply multipliers to the aggregated values
         for field_column in field_columns:
-            final_df[f"aggregated_{field_column}"] *= final_df.apply(
-                lambda row: multiplier_dict[f"{row['group']}_{row['subgroup']}"], axis=1
+            final_df[field_column] *= final_df.apply(
+                lambda row: multiplier_dict[f"{row['Group']}_{row['Subgroup']}"], axis=1
             )
 
-    # Sum the values for each group
-    group_sums = final_df.groupby("group").sum().reset_index()
-    group_sums = group_sums.drop(columns=["subgroup"])
+    # Make categorical columns for 'Group' ordered by label_regex or label_column or id_column
+    if label_regex:
+        final_df["Group"] = pd.Categorical(
+            final_df["Group"], categories=label_regex.keys(), ordered=True
+        )
+    elif label_column:
+        final_df["Group"] = pd.Categorical(
+            final_df["Group"], categories=df[label_column].unique(), ordered=True
+        )
+    else:
+        final_df["Group"] = final_df["Group"].astype(df[id_column].dtype)
 
-    return group_sums
+    # If preliminary results are requested, return the DataFrame before summing
+    if preliminary:
+        return final_df.set_index(["Group", "Subgroup"]).sort_index()
+
+    # Sum the values for each group
+    group_sums = (
+        final_df.groupby("Group", observed=True)
+        .sum()
+        .reset_index()
+        .drop(columns=["Subgroup"])
+    )
+
+    return group_sums.set_index("Group").sort_index()
