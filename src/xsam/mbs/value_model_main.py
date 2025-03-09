@@ -10,6 +10,7 @@ from xsam.mbs.value_model import (
     monte_carlo_simulation,
     stationarity_tests,
 )
+from xsam.constants import DATE_FORMAT
 
 
 def run_value_model(
@@ -17,19 +18,16 @@ def run_value_model(
     cvx_data: pd.Series,
     sigma_r_data: pd.Series,
     nu_r_data: pd.Series,
-    S_OAS_inf: float,
-    C_CC: float,
     enable_convexity: bool,
     enable_volatility: bool,
     enable_mle: bool,
-    S_OAS_init: float,
-    C_init: float,
-    sigma_r_forward: float | pd.Series,
-    nu_r_forward: float | pd.Series,
-    simulation_dates: pd.DatetimeIndex,
+    estimation_freq: str,
+    simulation_freq: str,
+    simulation_steps: int,
     num_paths: int,
     seed: int,
-    param_overrides: dict[str, float] = {},
+    model_param_overrides: dict[str, float] = {},
+    simulation_param_overrides: dict[str, float] = {},
     verbose: bool = False,
 ) -> dict[str, pd.DataFrame]:
     """Run the MBS valuation model. The function performs the following steps:
@@ -56,25 +54,48 @@ def run_value_model(
         simulation_dates (pd.DatetimeIndex): Dates for Monte Carlo simulation.
         num_paths (int): Number of Monte Carlo paths.
         seed (int): Seed for reproducibility.
-        param_overrides (dict[str, float], optional): Dictionary of parameter overrides. Defaults to {}.
+        param_overrides (dict[str, float], optional): Dictionary of model and simulation parameter overrides.
         verbose (bool, optional): Flag to enable verbose output. Defaults to False.
     """
 
-    # Assert that all data series have the same frequency
-    assert (
-        oas_data.index.freq
-        == cvx_data.index.freq
-        == sigma_r_data.index.freq
-        == nu_r_data.index.freq
-    )
-    assert simulation_dates.freq == oas_data.index.freq
-    if isinstance(sigma_r_forward, pd.Series):
-        assert sigma_r_forward.index.freq == nu_r_forward.index.freq
-    if isinstance(nu_r_forward, pd.Series):
-        assert sigma_r_forward.index.freq == nu_r_forward.index.freq
+    oas_data = oas_data.resample(estimation_freq).last().ffill()
+    cvx_data = cvx_data.resample(estimation_freq).last().ffill()
+    sigma_r_data = sigma_r_data.resample(estimation_freq).last().ffill()
+    nu_r_data = nu_r_data.resample(estimation_freq).last().ffill()
 
-    # Time step for Monte Carlo simulation
-    dt = 1 / len(simulation_dates)
+    # Monte Carlo simulation parameters
+    simulation_params = {
+        "S_OAS_init": float(oas_data.iloc[-1]),
+        "C_init": float(cvx_data.iloc[-1]),
+        "S_OAS_inf": float(np.mean(oas_data)),
+        "C_CC": float(np.mean(cvx_data)),
+        "sigma_r_forward": float(sigma_r_data.iloc[-1]),
+        "nu_r_forward": float(nu_r_data.iloc[-1]),
+    }
+
+    # Override parameters if specified
+    simulation_params.update(simulation_param_overrides)
+
+    # Time steps for estimation and simulation
+    start_date = oas_data.index[-1]
+    simulation_dates = pd.date_range(
+        start=start_date, periods=simulation_steps, freq=simulation_freq
+    )
+    simulation_dt = 1 / simulation_steps
+    simulation_dates_estimation_freq = pd.date_range(
+        start=simulation_dates[0], end=simulation_dates[-1], freq=estimation_freq
+    )
+    simulation_steps_estimation_freq = len(simulation_dates_estimation_freq)
+    simulation_dt_estimation_freq = 1 / simulation_steps_estimation_freq
+    if verbose:
+        print(f"Estimating model parameters over a {simulation_steps_estimation_freq} steps change with frequency '{estimation_freq}' from {oas_data.index[0]:%Y-%m-%d} to {oas_data.index[-1]:'%Y-%m-%d'}")
+        print(f"Simulating {simulation_steps} steps with frequency '{simulation_freq}' from {simulation_dates[0]:%Y-%m-%d} to {simulation_dates[-1]:%Y-%m-%d}")
+
+    # Assert that forward data series have the simulation frequency
+    if isinstance(simulation_params["sigma_r_forward"], pd.Series):
+        assert simulation_params["sigma_r_forward"].index.freq == simulation_dates.freq
+    if isinstance(simulation_params["nu_r_forward"], pd.Series):
+        assert simulation_params["nu_r_forward"].index.freq == simulation_dates.freq
 
     # Stationarity tests
     adf_OAS, adf_C = stationarity_tests(oas_data, cvx_data, verbose=verbose)
@@ -92,8 +113,9 @@ def run_value_model(
         cvx_data,
         sigma_r_data,
         nu_r_data,
-        S_OAS_inf,
-        C_CC,
+        simulation_params["S_OAS_inf"],
+        simulation_params["C_CC"],
+        simulation_steps_estimation_freq,
         enable_convexity=enable_convexity,
         enable_volatility=enable_volatility,
         verbose=verbose,
@@ -125,9 +147,9 @@ def run_value_model(
             cvx_data,
             sigma_r_data,
             nu_r_data,
-            S_OAS_inf,
-            C_CC,
-            dt,
+            simulation_params["S_OAS_inf"],
+            simulation_params["C_CC"],
+            simulation_dt_estimation_freq,
             initial_guess=initial_guess,
             enable_convexity=enable_convexity,
             enable_volatility=enable_volatility,
@@ -143,12 +165,12 @@ def run_value_model(
         "sigma_O_0": sigma_O_0,
         "delta": delta,
         "sigma_C": sigma_C,
-        "dt": dt,
+        "dt": simulation_dt,
     }
 
     # Override parameters if specified
-    model_params.update(param_overrides)
-    
+    model_params.update(model_param_overrides)
+
     # Create model instance with MLE parameters
     model = JointReversionModel(
         **model_params,
@@ -157,17 +179,13 @@ def run_value_model(
     # Perform Monte Carlo simulation
     paths = monte_carlo_simulation(
         model,
-        S_OAS_init,
-        C_init,
-        S_OAS_inf,
-        C_CC,
-        sigma_r_forward,
-        nu_r_forward,
-        simulation_dates,
-        enable_convexity,
-        enable_volatility,
-        num_paths,
-        seed,
+        **simulation_params,
+        simulation_dates=simulation_dates,
+        enable_convexity=enable_convexity,
+        enable_volatility=enable_volatility,
+        num_paths=num_paths,
+        seed=seed,
+        verbose=verbose,
     )
 
     return paths
@@ -247,9 +265,7 @@ def plot_value_model(
         linestyle=":",
         label="Projected Convexity",
     )
-    axs[2].axhline(
-        y=C_CC, color="darkgreen", linestyle="--", label="Reversion Level"
-    )
+    axs[2].axhline(y=C_CC, color="darkgreen", linestyle="--", label="Reversion Level")
     axs[2].set_title("Monte Carlo Simulation of Convexity")
     axs[2].set_xlabel("")
     axs[2].set_ylabel("Convexity")
@@ -265,9 +281,7 @@ def plot_value_model(
         linestyle=":",
         label="Projected Convexity",
     )
-    axs[3].axhline(
-        y=C_CC, color="darkgreen", linestyle="--", label="Reversion Level"
-    )
+    axs[3].axhline(y=C_CC, color="darkgreen", linestyle="--", label="Reversion Level")
     axs[3].set_title("Monte Carlo Simulation of Convexity - Zoomed In")
     axs[3].set_xlabel("")
     axs[3].set_ylabel("Convexity")
@@ -328,20 +342,13 @@ def main() -> None:
     cvx_hist = zv_hist - oas_hist
 
     # Monte Carlo simulation parameters
-    project_num_days = 365
-    project_freq = "W-FRI"
-    simulation_dates = pd.date_range(
-        start=train_end_date, periods=project_num_days, freq="D"
-    )
-    simulation_dates = (
-        pd.Series(index=simulation_dates).resample(project_freq).first().index
-    )
-    oas_data = oas_hist.resample(project_freq).last()
-    cvx_data = cvx_hist.resample(project_freq).last()
-    sigma_r_data = sigma_r_hist.resample(project_freq).last()
-    nu_r_data = nu_r_hist.resample(project_freq).last()
-    S_OAS_init = float(oas_data.iloc[-1])
-    C_init = float(cvx_data.iloc[-1])
+    oas_data = oas_hist.copy()
+    cvx_data = cvx_hist.copy()
+    sigma_r_data = sigma_r_hist.copy()
+    nu_r_data = nu_r_hist.copy()
+    estimation_freq = "B"
+    simulation_freq = "W-FRI"
+    simulation_steps = 52
     num_paths = 100  # Number of Monte Carlo paths
 
     # Update X0 for forward data
@@ -349,6 +356,10 @@ def main() -> None:
     nu_r_params["X0"] = nu_r_data.iloc[-1]
 
     # Generate forward data
+    start_date = oas_data.index[-1]
+    simulation_dates = pd.date_range(
+        start=start_date, periods=simulation_steps, freq=simulation_freq
+    )
     sigma_r_forward, nu_r_forward = generate_forward_data(
         sigma_r_params,
         nu_r_params,
@@ -357,14 +368,16 @@ def main() -> None:
     )
 
     # Model parameters
-    S_OAS_inf = float(np.mean(oas_data))
-    C_CC = float(np.mean(cvx_data))
     enable_convexity = True
     enable_volatility = True
     enable_mle = False
-    param_overrides = {
-        "kappa": 0.6,
-        "lambda_": 0.6
+    model_param_overrides = {
+        # "kappa": 0.6,
+        # "lambda_": 0.6,
+    }
+    simulation_param_overrides = {
+        # "sigma_r_forward": sigma_r_forward,
+        # "nu_r_forward": nu_r_forward,
     }
 
     # Run MBS valuation model
@@ -373,23 +386,22 @@ def main() -> None:
         cvx_data,
         sigma_r_data,
         nu_r_data,
-        S_OAS_inf,
-        C_CC,
         enable_convexity,
         enable_volatility,
         enable_mle,
-        S_OAS_init,
-        C_init,
-        sigma_r_forward,
-        nu_r_forward,
-        simulation_dates,
+        estimation_freq,
+        simulation_freq,
+        simulation_steps,
         num_paths,
         seed,
-        param_overrides=param_overrides,
+        model_param_overrides=model_param_overrides,
+        simulation_param_overrides=simulation_param_overrides,
         verbose=True,
     )
 
     # Plot historical data and Monte Carlo paths
+    S_OAS_inf = float(np.mean(oas_data))
+    C_CC = float(np.mean(cvx_data))
     fig = plot_value_model(oas_data, cvx_data, paths, S_OAS_inf, C_CC)
 
 
