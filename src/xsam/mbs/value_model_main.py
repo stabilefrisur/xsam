@@ -2,15 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from xsam.mbs.mock_data import generate_forward_data, generate_historical_data
-from xsam.mbs.value_model import (
-    JointReversionModel,
-    estimate_parameters_ols,
-    estimate_parameters_mle,
-    monte_carlo_simulation,
-    stationarity_tests,
-)
 from xsam.constants import DATE_FORMAT
+from xsam.mbs.mock_data import generate_forward_data, generate_historical_data
+from xsam.mbs.value_model import JointReversionModel
 
 
 def run_value_model(
@@ -43,7 +37,7 @@ def run_value_model(
         sigma_r_data (pd.Series): Historical data for Rates Volatility.
         nu_r_data (pd.Series): Historical data for Rates Volatility of Volatility.
         S_OAS_inf (float): Reversion level for OAS.
-        C_CC (float): Reversion level for Convexity.
+        C_inf (float): Reversion level for Convexity.
         enable_convexity (bool): Flag to enable Convexity.
         enable_volatility (bool): Flag to enable Volatility.
         enable_mle (bool): Flag to enable MLE estimation.
@@ -68,7 +62,7 @@ def run_value_model(
         "S_OAS_init": float(oas_data.iloc[-1]),
         "C_init": float(cvx_data.iloc[-1]),
         "S_OAS_inf": float(np.mean(oas_data)),
-        "C_CC": float(np.mean(cvx_data)),
+        "C_inf": float(np.mean(cvx_data)),
         "sigma_r_forward": float(sigma_r_data.iloc[-1]),
         "nu_r_forward": float(nu_r_data.iloc[-1]),
     }
@@ -88,8 +82,18 @@ def run_value_model(
     simulation_steps_estimation_freq = len(simulation_dates_estimation_freq)
     simulation_dt_estimation_freq = 1 / simulation_steps_estimation_freq
     if verbose:
-        print(f"Estimating model parameters over a {simulation_steps_estimation_freq} steps change with frequency '{estimation_freq}' from {oas_data.index[0]:%Y-%m-%d} to {oas_data.index[-1]:'%Y-%m-%d'}")
-        print(f"Simulating {simulation_steps} steps with frequency '{simulation_freq}' from {simulation_dates[0]:%Y-%m-%d} to {simulation_dates[-1]:%Y-%m-%d}")
+        print("\nEstimation config:")
+        print(f"Steps: {simulation_steps_estimation_freq}")
+        print(f"Frequency: '{estimation_freq}'")
+        est_start = oas_data.index[0].strftime(DATE_FORMAT)
+        est_end = oas_data.index[-1].strftime(DATE_FORMAT)
+        print(f"Range: from {est_start} to {est_end}")
+        print("\nSimulation config:")
+        print(f"Steps: {simulation_steps}")
+        print(f"Frequency: '{simulation_freq}'")
+        sim_start = simulation_dates[0].strftime(DATE_FORMAT)
+        sim_end = simulation_dates[-1].strftime(DATE_FORMAT)
+        print(f"Range: from {sim_start} to {sim_end}")
 
     # Assert that forward data series have the simulation frequency
     if isinstance(simulation_params["sigma_r_forward"], pd.Series):
@@ -97,24 +101,20 @@ def run_value_model(
     if isinstance(simulation_params["nu_r_forward"], pd.Series):
         assert simulation_params["nu_r_forward"].index.freq == simulation_dates.freq
 
-    # Stationarity tests
-    adf_OAS, adf_C = stationarity_tests(oas_data, cvx_data, verbose=verbose)
+    # Initialise the model
+    model = JointReversionModel(dt=simulation_dt)
 
-    (
-        kappa,
-        gamma,
-        sigma_O_0,
-        delta,
-        lambda_,
-        beta,
-        sigma_C,
-    ) = estimate_parameters_ols(
+    # Stationarity tests
+    adf_OAS, adf_C = model.stationarity_tests(oas_data, cvx_data, verbose=verbose)
+
+    # Estimate model parameters using OLS
+    model.estimate_parameters_ols(
         oas_data,
         cvx_data,
         sigma_r_data,
         nu_r_data,
         simulation_params["S_OAS_inf"],
-        simulation_params["C_CC"],
+        simulation_params["C_inf"],
         simulation_steps_estimation_freq,
         enable_convexity=enable_convexity,
         enable_volatility=enable_volatility,
@@ -122,63 +122,25 @@ def run_value_model(
     )
 
     if enable_mle:
-        # Use OLS estimates as initial guess for MLE
-        initial_guess = [
-            kappa,
-            *gamma,
-            sigma_O_0,
-            delta,
-            lambda_,
-            *beta,
-            sigma_C,
-        ]
-
         # Estimate model parameters using MLE
-        (
-            kappa,
-            gamma,
-            sigma_O_0,
-            delta,
-            lambda_,
-            beta,
-            sigma_C,
-        ) = estimate_parameters_mle(
+        model.estimate_parameters_mle(
             oas_data,
             cvx_data,
             sigma_r_data,
             nu_r_data,
             simulation_params["S_OAS_inf"],
-            simulation_params["C_CC"],
+            simulation_params["C_inf"],
             simulation_dt_estimation_freq,
-            initial_guess=initial_guess,
             enable_convexity=enable_convexity,
             enable_volatility=enable_volatility,
             verbose=verbose,
         )
 
-    # Collate model parameters
-    model_params = {
-        "kappa": kappa,
-        "lambda_": lambda_,
-        "gamma": gamma,
-        "beta": beta,
-        "sigma_O_0": sigma_O_0,
-        "delta": delta,
-        "sigma_C": sigma_C,
-        "dt": simulation_dt,
-    }
-
-    # Override parameters if specified
-    model_params.update(model_param_overrides)
-
-    # Create model instance with MLE parameters
-    model = JointReversionModel(
-        **model_params,
-    )
+    # Override model parameters if specified
+    model.update_parameters(**model_param_overrides)
 
     # Perform Monte Carlo simulation
-    paths = monte_carlo_simulation(
-        model,
+    paths = model.monte_carlo_simulation(
         **simulation_params,
         simulation_dates=simulation_dates,
         enable_convexity=enable_convexity,
@@ -196,7 +158,7 @@ def plot_value_model(
     cvx_data: pd.Series,
     paths: dict[str, pd.DataFrame],
     S_OAS_inf: float,
-    C_CC: float,
+    C_inf: float,
 ) -> plt.Figure:
     """Plot historical data and Monte Carlo paths for OAS and Convexity.
 
@@ -205,7 +167,7 @@ def plot_value_model(
         cvx_data (pd.Series): Historical data for Convexity.
         paths (dict[str, pd.DataFrame]): Monte Carlo paths for OAS and Convexity.
         S_OAS_inf (float): Reversion level for OAS.
-        C_CC (float): Reversion level for Convexity.
+        C_inf (float): Reversion level for Convexity.
 
     Returns:
         plt.Figure: Figure object with the plot.
@@ -265,7 +227,7 @@ def plot_value_model(
         linestyle=":",
         label="Projected Convexity",
     )
-    axs[2].axhline(y=C_CC, color="darkgreen", linestyle="--", label="Reversion Level")
+    axs[2].axhline(y=C_inf, color="darkgreen", linestyle="--", label="Reversion Level")
     axs[2].set_title("Monte Carlo Simulation of Convexity")
     axs[2].set_xlabel("")
     axs[2].set_ylabel("Convexity")
@@ -281,7 +243,7 @@ def plot_value_model(
         linestyle=":",
         label="Projected Convexity",
     )
-    axs[3].axhline(y=C_CC, color="darkgreen", linestyle="--", label="Reversion Level")
+    axs[3].axhline(y=C_inf, color="darkgreen", linestyle="--", label="Reversion Level")
     axs[3].set_title("Monte Carlo Simulation of Convexity - Zoomed In")
     axs[3].set_xlabel("")
     axs[3].set_ylabel("Convexity")
@@ -401,8 +363,8 @@ def main() -> None:
 
     # Plot historical data and Monte Carlo paths
     S_OAS_inf = float(np.mean(oas_data))
-    C_CC = float(np.mean(cvx_data))
-    fig = plot_value_model(oas_data, cvx_data, paths, S_OAS_inf, C_CC)
+    C_inf = float(np.mean(cvx_data))
+    fig = plot_value_model(oas_data, cvx_data, paths, S_OAS_inf, C_inf)
 
 
 if __name__ == "__main__":
