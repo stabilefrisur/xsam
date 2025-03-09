@@ -87,6 +87,35 @@ git commit -m <span class="hljs-string">&quot;initial commit&quot;</span>
 <pre><code class="code-line language-bash" dir="auto">git branch -M master
 git push -u origin master
 </code></pre>
+<h2 dir="auto" id="create-a-git-branch-and-merge-into-master">Create a Git branch and merge into master</h2>
+<p dir="auto">Create a new branch</p>
+<pre><code class="code-line language-bash" dir="auto">git checkout -b new_feature
+</code></pre>
+<p dir="auto">Stage all code changes</p>
+<pre><code class="code-line language-bash" dir="auto">git add .
+</code></pre>
+<p dir="auto">Commit code changes</p>
+<pre><code class="code-line language-bash" dir="auto">git commit -m <span class="hljs-string">&quot;Add new feature&quot;</span>
+</code></pre>
+<p dir="auto">Push the new branch to GitHub</p>
+<pre><code class="code-line language-bash" dir="auto">git push -u origin new_feature
+</code></pre>
+<p dir="auto">Start a pull request:</p>
+<ul dir="auto">
+<li dir="auto">Go to your repository on GitHub.</li>
+<li dir="auto">You should see a prompt to create a pull request for the new_feature branch.</li>
+<li dir="auto">Follow the instructions to create the pull request.</li>
+</ul>
+<p dir="auto">Merge the pull request into master:</p>
+<ul dir="auto">
+<li dir="auto">Once the pull request is reviewed and approved, merge it into the master branch using the GitHub interface.</li>
+</ul>
+<p dir="auto">Delete the new_feature branch locally and remotely:</p>
+<pre><code class="code-line language-bash" dir="auto">git checkout master
+git pull origin master
+git branch -d new_feature
+git push origin --delete new_feature
+</code></pre>
 <h2 dir="auto" id="register-and-run-mainpy">Register and run main.py</h2>
 <p dir="auto">Register an entry point to the package</p>
 <pre><code class="code-line language-bash" dir="auto"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;[project.scripts]&#x27;</span> &gt;&gt; pyproject.toml

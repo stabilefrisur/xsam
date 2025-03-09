@@ -116,6 +116,44 @@ git branch -M master
 git push -u origin master
 ```
 
+## Create a Git branch and merge into master
+
+Create a new branch
+```bash
+git checkout -b new_feature
+```
+
+Stage all code changes
+```bash
+git add .
+```
+
+Commit code changes 
+```bash
+git commit -m "Add new feature"
+```
+
+Push the new branch to GitHub
+```bash
+git push -u origin new_feature
+```
+
+Start a pull request:
+- Go to your repository on GitHub.
+- You should see a prompt to create a pull request for the new_feature branch.
+- Follow the instructions to create the pull request.
+
+Merge the pull request into master:
+- Once the pull request is reviewed and approved, merge it into the master branch using the GitHub interface.
+
+Delete the new_feature branch locally and remotely:
+```bash
+git checkout master
+git pull origin master
+git branch -d new_feature
+git push origin --delete new_feature
+```
+
 ## Register and run main.py 
 
 Register an entry point to the package
