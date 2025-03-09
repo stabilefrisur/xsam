@@ -154,6 +154,7 @@ def estimate_parameters_ols(
     nu_r: pd.Series,
     S_OAS_inf: float,
     C_CC: float,
+    steps: int,
     initial_guess: tuple[float, float] = (0.05, 0.2),
     enable_convexity: bool = True,
     enable_volatility: bool = True,
@@ -183,20 +184,20 @@ def estimate_parameters_ols(
     nu_r = nu_r.values
 
     # Mean Reversion Parameter Estimation using OLS
-    X_OAS = [S_OAS_inf - S_OAS[:-1]]
-    X_C = [C_CC - C[:-1]]
+    X_OAS = [S_OAS_inf - S_OAS[:-steps]]
+    X_C = [C_CC - C[:-steps]]
 
     if enable_convexity:
-        X_OAS.append(C[:-1])
-        X_C.append(S_OAS[:-1])
+        X_OAS.append(C[:-steps])
+        X_C.append(S_OAS[:-steps])
     if enable_volatility:
-        X_OAS.extend([sigma_r[:-1], nu_r[:-1]])
-        X_C.extend([sigma_r[:-1], nu_r[:-1]])
+        X_OAS.extend([sigma_r[:-steps], nu_r[:-steps]])
+        X_C.extend([sigma_r[:-steps], nu_r[:-steps]])
 
     X_OAS = np.vstack(X_OAS).T
-    y_OAS = S_OAS[1:] - S_OAS[:-1]
+    y_OAS = S_OAS[steps:] - S_OAS[:-steps]
     X_C = np.vstack(X_C).T
-    y_C = C[1:] - C[:-1]
+    y_C = C[steps:] - C[:-steps]
 
     # OLS regression for OAS
     ols_OAS = np.linalg.lstsq(X_OAS, y_OAS, rcond=None)[0]
@@ -229,7 +230,7 @@ def estimate_parameters_ols(
     # Residual Variance Calibration
     def variance_function(params):
         sigma_O_0, delta = params
-        return np.sum((residuals_OAS**2 - (sigma_O_0**2 + delta * C[:-1] ** 2)) ** 2)
+        return np.sum((residuals_OAS**2 - (sigma_O_0**2 + delta * C[:-steps] ** 2)) ** 2)
 
     if enable_convexity:
         sigma_O_0, delta = minimize(variance_function, initial_guess).x
@@ -451,8 +452,8 @@ def monte_carlo_simulation(
     C_init: float,
     S_OAS_inf: float,
     C_CC: float,
-    sigma_r: float | pd.Series,
-    nu_r: float | pd.Series,
+    sigma_r_forward: float | pd.Series,
+    nu_r_forward: float | pd.Series,
     simulation_dates: pd.DatetimeIndex,
     enable_convexity: bool = True,
     enable_volatility: bool = True,
@@ -467,8 +468,8 @@ def monte_carlo_simulation(
         S_OAS_init (float): Initial value of OAS spread.
         C_init (float): Initial value of Convexity.
         C_CC (float): Convexity of the current coupon bond (or TBA).
-        sigma_r (float | pd.Series): Volatility of interest rates.
-        nu_r (float | pd.Series): Volatility of volatility of interest rates.
+        sigma_r_forward (float | pd.Series): Volatility of interest rates.
+        nu_r_forward (float | pd.Series): Volatility of volatility of interest rates.
         simulation_dates (pd.DatetimeIndex): Dates for the simulation.
         enable_convexity (bool, optional): Enable convexity interaction. Defaults to True.
         enable_volatility (bool, optional): Enable interest rate interaction. Defaults to True.
@@ -497,15 +498,15 @@ def monte_carlo_simulation(
 
     steps = len(simulation_dates)
 
-    if isinstance(sigma_r, float):
-        sigma_r_series = pd.Series(np.full(steps, sigma_r), index=simulation_dates)
+    if isinstance(sigma_r_forward, float):
+        sigma_r_series = pd.Series(np.full(steps, sigma_r_forward), index=simulation_dates)
     else:
-        sigma_r_series = sigma_r
+        sigma_r_series = sigma_r_forward
 
-    if isinstance(nu_r, float):
-        nu_r_series = pd.Series(np.full(steps, nu_r), index=simulation_dates)
+    if isinstance(nu_r_forward, float):
+        nu_r_series = pd.Series(np.full(steps, nu_r_forward), index=simulation_dates)
     else:
-        nu_r_series = nu_r
+        nu_r_series = nu_r_forward
 
     rng = np.random.default_rng(seed)
 
