@@ -120,10 +120,12 @@ The `aggregate_fields_by_label` function aggregates values in a DataFrame by lab
 
 - `df` (pd.DataFrame): DataFrame containing the data to aggregate.
 - `id_column` (str): Column containing IDs to be associated with groups.
-- `weight_column` (str): Column to use for weighted averages.
-- `field_columns` (list[str]): List of field columns to be aggregated as weighted average by group.
+- `weight_column` (str, optional): Column to use for weighted averages. Defaults to None.
+- `field_columns` (list[str], optional): List of field columns to be aggregated. Defaults to None.
 - `label_column` (str, optional): Column containing labels to use for grouping. Defaults to None.
 - `label_regex` (dict, optional): Dictionary of regex patterns and multipliers to use for grouping. Defaults to None.
+- `method` (str, optional): Method to use for aggregation. Options are "sum", "wsum", "avg", "wavg". Defaults to "sum".
+- `preliminary` (bool, optional): Whether to return the DataFrame before summing the values for each group. Defaults to False.
 
 #### Returns
 
@@ -147,7 +149,7 @@ regex_dict = {
     "B_group": {"long": ("B.*", 1), "short": ("B1", -1)},
     "C_group": {"long": ("C.*", 1), "short": ("C1", -1)},
 }
-result = aggregate_fields_by_label(df, "id", "weight", ["value1", "value2"], label_regex=regex_dict)
+result = aggregate_fields_by_label(df, "id", "weight", ["value1", "value2"], label_regex=regex_dict, method="wavg")
 print(result)
 ```
 
