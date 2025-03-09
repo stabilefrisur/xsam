@@ -23,7 +23,7 @@ def run_value_model(
     model_param_overrides: dict[str, float] = {},
     simulation_param_overrides: dict[str, float] = {},
     verbose: bool = False,
-) -> dict[str, pd.DataFrame]:
+) -> tuple[dict[str, pd.DataFrame], JointReversionModel]:
     """Run the MBS valuation model. The function performs the following steps:
     1. Perform stationarity tests for OAS and Convexity.
     2. Estimate model parameters using OLS to generate initial guess for MLE.
@@ -102,7 +102,11 @@ def run_value_model(
         assert simulation_params["nu_r_forward"].index.freq == simulation_dates.freq
 
     # Initialise the model
-    model = JointReversionModel(dt=simulation_dt)
+    model = JointReversionModel(
+        dt=simulation_dt,
+        enable_convexity=enable_convexity,
+        enable_volatility=enable_volatility,
+    )
 
     # Stationarity tests
     adf_OAS, adf_C = model.stationarity_tests(oas_data, cvx_data, verbose=verbose)
@@ -116,8 +120,6 @@ def run_value_model(
         simulation_params["S_OAS_inf"],
         simulation_params["C_inf"],
         simulation_steps_estimation_freq,
-        enable_convexity=enable_convexity,
-        enable_volatility=enable_volatility,
         verbose=verbose,
     )
 
@@ -131,8 +133,6 @@ def run_value_model(
             simulation_params["S_OAS_inf"],
             simulation_params["C_inf"],
             simulation_dt_estimation_freq,
-            enable_convexity=enable_convexity,
-            enable_volatility=enable_volatility,
             verbose=verbose,
         )
 
@@ -143,14 +143,12 @@ def run_value_model(
     paths = model.monte_carlo_simulation(
         **simulation_params,
         simulation_dates=simulation_dates,
-        enable_convexity=enable_convexity,
-        enable_volatility=enable_volatility,
         num_paths=num_paths,
         seed=seed,
         verbose=verbose,
     )
 
-    return paths
+    return paths, model
 
 
 def plot_value_model(
@@ -309,8 +307,8 @@ def main() -> None:
     sigma_r_data = sigma_r_hist.copy()
     nu_r_data = nu_r_hist.copy()
     estimation_freq = "B"
-    simulation_freq = "W-FRI"
-    simulation_steps = 52
+    simulation_freq = "B"
+    simulation_steps = 252
     num_paths = 100  # Number of Monte Carlo paths
 
     # Update X0 for forward data
@@ -343,7 +341,7 @@ def main() -> None:
     }
 
     # Run MBS valuation model
-    paths = run_value_model(
+    paths, model = run_value_model(
         oas_data,
         cvx_data,
         sigma_r_data,
@@ -365,6 +363,62 @@ def main() -> None:
     S_OAS_inf = float(np.mean(oas_data))
     C_inf = float(np.mean(cvx_data))
     fig = plot_value_model(oas_data, cvx_data, paths, S_OAS_inf, C_inf)
+
+
+def model_vs_actual(
+    model: JointReversionModel,
+    oas_data: pd.Series,
+    cvx_data: pd.Series,
+    sigma_r_data: pd.Series,
+    nu_r_data: pd.Series,
+    simulation_freq: str,
+    simulation_steps: int,
+    num_paths: int,
+    seed: int,
+):
+    # Perform Monte Carlo simulation
+    # Time steps for estimation and simulation
+
+    S_OAS_inf = float(np.mean(oas_data))
+    C_inf = float(np.mean(cvx_data))
+
+    oas_expected_paths = []
+    cvx_expected_paths = []
+
+    oas_expected = []
+    cvx_expected = []
+
+    for start_date in oas_data.index[:10]:
+        print(start_date.strftime(DATE_FORMAT))
+
+        simulation_dates = pd.date_range(
+            start=start_date, periods=simulation_steps, freq=simulation_freq
+        )
+
+        paths = model.monte_carlo_simulation(
+            S_OAS_init=oas_data.loc[start_date],
+            C_init=cvx_data.loc[start_date],
+            S_OAS_inf=S_OAS_inf,
+            C_inf=C_inf,
+            sigma_r_forward=sigma_r_data.loc[simulation_dates],
+            nu_r_forward=nu_r_data.loc[simulation_dates],
+            simulation_dates=simulation_dates,
+            num_paths=num_paths,
+            seed=seed,
+            verbose=False,
+        )
+        oas_expected_path = paths["oas"].mean(axis=1)
+        cvx_expected_path = paths["cvx"].mean(axis=1)
+
+        oas_expected_paths.append(oas_expected_path)
+        cvx_expected_paths.append(cvx_expected_path)
+
+        oas_expected.append((simulation_dates[-1], float(oas_expected_path.iloc[-1])))
+        cvx_expected.append((simulation_dates[-1], float(cvx_expected_path.iloc[-1])))
+
+    oas_expected = pd.DataFrame(oas_expected, columns=["date", "oas"])
+    cvx_expected = pd.DataFrame(cvx_expected, columns=["date", "cvx"])
+    print()
 
 
 if __name__ == "__main__":
