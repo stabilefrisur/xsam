@@ -253,6 +253,219 @@ def plot_value_model(
     return fig
 
 
+def model_vs_actual(
+    model: JointReversionModel,
+    oas_data: pd.Series,
+    cvx_data: pd.Series,
+    sigma_r_data: pd.Series,
+    nu_r_data: pd.Series,
+    simulation_freq: str,
+    simulation_steps: int,
+    num_paths: int,
+    seed: int,
+    steps: int = 1,
+    verbose: bool = False,
+) -> tuple[pd.DataFrame, pd.DataFrame, list[pd.Series], list[pd.Series]]:
+    """Compare model expected vs actual change in OAS and Convexity.
+
+    Args:
+        model (JointReversionModel): Model object.
+        oas_data (pd.Series): Historical data for OAS.
+        cvx_data (pd.Series): Historical data for Convexity.
+        sigma_r_data (pd.Series): Historical data for Rates Volatility.
+        nu_r_data (pd.Series): Historical data for Rates Volatility of Volatility.
+        simulation_freq (str): Frequency for Monte Carlo simulation.
+        simulation_steps (int): Number of simulation steps.
+        num_paths (int): Number of Monte Carlo paths.
+        seed (int): Seed for reproducibility.
+        steps (int, optional): Number of steps to skip for simulation. Defaults to 1.
+        verbose (bool, optional): Flag to enable verbose output. Defaults to False.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame, list[pd.Series], list[pd.Series]]: DataFrames for OAS and Convexity expected vs actual change.
+    """
+    # Perform Monte Carlo simulation
+    # Time steps for estimation and simulation
+
+    S_OAS_inf = float(np.mean(oas_data))
+    C_inf = float(np.mean(cvx_data))
+
+    oas_expected_paths = []
+    cvx_expected_paths = []
+
+    oas_expected = []
+    cvx_expected = []
+
+    oas_actual_start = []
+    cvx_actual_start = []
+
+    oas_actual_end = []
+    cvx_actual_end = []
+
+    oas_expected_change = []
+    cvx_expected_change = []
+
+    oas_actual_change = []
+    cvx_actual_change = []
+
+    # Get the last start date as a location in oas_data.index
+    final_simulation_dates = pd.date_range(
+        end=oas_data.index[-1], periods=simulation_steps, freq=simulation_freq
+    )
+    final_start = oas_data.index.get_loc(final_simulation_dates[0])
+
+    for start in oas_data.index[:final_start:steps]:
+        if verbose:
+            print(start.strftime(DATE_FORMAT))
+
+        simulation_dates = pd.date_range(
+            start=start, periods=simulation_steps, freq=simulation_freq
+        )
+        end = simulation_dates[-1]
+
+        paths = model.monte_carlo_simulation(
+            S_OAS_init=oas_data.loc[start],
+            C_init=cvx_data.loc[start],
+            S_OAS_inf=S_OAS_inf,
+            C_inf=C_inf,
+            sigma_r_forward=sigma_r_data.loc[simulation_dates],
+            nu_r_forward=nu_r_data.loc[simulation_dates],
+            simulation_dates=simulation_dates,
+            num_paths=num_paths,
+            seed=seed,
+            verbose=False,
+        )
+        oas_expected_path = paths["oas"].mean(axis=1)
+        cvx_expected_path = paths["cvx"].mean(axis=1)
+
+        oas_expected_paths.append(oas_expected_path)
+        cvx_expected_paths.append(cvx_expected_path)
+
+        oas_expected.append((end, float(oas_expected_path.iloc[-1])))
+        cvx_expected.append((end, float(cvx_expected_path.iloc[-1])))
+
+        oas_actual_start.append((start, float(oas_data.loc[start])))
+        cvx_actual_start.append((start, float(cvx_data.loc[start])))
+
+        oas_actual_end.append((end, float(oas_data.loc[end])))
+        cvx_actual_end.append((end, float(cvx_data.loc[end])))
+
+        oas_expected_change.append(
+            (end, float(oas_expected_path.iloc[-1]) - float(oas_data.loc[start]))
+        )
+        cvx_expected_change.append(
+            (end, float(cvx_expected_path.iloc[-1]) - float(cvx_data.loc[start]))
+        )
+
+        oas_actual_change.append(
+            (end, float(oas_data.loc[end]) - float(oas_data.loc[start]))
+        )
+        cvx_actual_change.append(
+            (end, float(cvx_data.loc[end]) - float(cvx_data.loc[start]))
+        )
+
+    oas_expected = pd.DataFrame(
+        oas_expected, columns=["Date", "Expected End"]
+    ).set_index("Date")
+    cvx_expected = pd.DataFrame(
+        cvx_expected, columns=["Date", "Expected End"]
+    ).set_index("Date")
+
+    oas_actual_start = pd.DataFrame(
+        oas_actual_start, columns=["Date", "Actual Start"]
+    ).set_index("Date")
+    cvx_actual_start = pd.DataFrame(
+        cvx_actual_start, columns=["Date", "Actual Start"]
+    ).set_index("Date")
+
+    oas_actual_end = pd.DataFrame(
+        oas_actual_end, columns=["Date", "Actual End"]
+    ).set_index("Date")
+    cvx_actual_end = pd.DataFrame(
+        cvx_actual_end, columns=["Date", "Actual End"]
+    ).set_index("Date")
+
+    oas_expected_change = pd.DataFrame(
+        oas_expected_change, columns=["Date", "Expected Change"]
+    ).set_index("Date")
+    cvx_expected_change = pd.DataFrame(
+        cvx_expected_change, columns=["Date", "Expected Change"]
+    ).set_index("Date")
+
+    oas_actual_change = pd.DataFrame(
+        oas_actual_change, columns=["Date", "Actual Change"]
+    ).set_index("Date")
+    cvx_actual_change = pd.DataFrame(
+        cvx_actual_change, columns=["Date", "Actual Change"]
+    ).set_index("Date")
+
+    oas = pd.concat(
+        [
+            oas_actual_start,
+            oas_actual_end,
+            oas_expected,
+            oas_actual_change,
+            oas_expected_change,
+        ],
+        axis=1,
+    )
+    cvx = pd.concat(
+        [
+            cvx_actual_start,
+            cvx_actual_end,
+            cvx_expected,
+            cvx_actual_change,
+            cvx_expected_change,
+        ],
+        axis=1,
+    )
+
+    # Plot OAS and Convexity expected vs actual change in scatter plot with regression line
+    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12, 6))
+
+    axs = axs.flatten()
+
+    oas_plot = oas.loc[:, ["Actual Change", "Expected Change"]].dropna()
+    axs[0].scatter(oas_plot["Actual Change"], oas_plot["Expected Change"])
+    # Add regression line
+    x = oas_plot["Actual Change"]
+    y = oas_plot["Expected Change"]
+    m, b = np.polyfit(x, y, 1)
+    axs[0].plot(x, m * x + b, color="red")
+    # Print regression line equation
+    axs[0].text(
+        0.05, 0.95, f"y = {m:.2f}x + {b:.2f}", transform=axs[0].transAxes, va="top"
+    )
+    # Add R^2 to plot
+    r2 = np.corrcoef(x, y)[0, 1] ** 2
+    axs[0].text(0.05, 0.9, f"R^2 = {r2:.2f}", transform=axs[0].transAxes, va="top")
+    axs[0].set_title("OAS Expected vs Actual Change")
+    axs[0].set_xlabel("Actual Change")
+    axs[0].set_ylabel("Expected Change")
+
+    cvx_plot = cvx.loc[:, ["Actual Change", "Expected Change"]].dropna()
+    axs[1].scatter(cvx_plot["Actual Change"], cvx_plot["Expected Change"])
+    # Add regression line
+    x = cvx_plot["Actual Change"]
+    y = cvx_plot["Expected Change"]
+    m, b = np.polyfit(x, y, 1)
+    axs[1].plot(x, m * x + b, color="red")
+    # Print regression line equation in the top left corner
+    axs[1].text(
+        0.05, 0.95, f"y = {m:.2f}x + {b:.2f}", transform=axs[1].transAxes, va="top"
+    )
+    # Add R^2 to plot
+    r2 = np.corrcoef(x, y)[0, 1] ** 2
+    axs[1].text(0.05, 0.9, f"R^2 = {r2:.2f}", transform=axs[1].transAxes, va="top")
+    axs[1].set_title("Convexity Expected vs Actual Change")
+    axs[1].set_xlabel("Actual Change")
+    axs[1].set_ylabel("Expected Change")
+
+    plt.show()
+
+    return oas, cvx, oas_expected_paths, cvx_expected_paths
+
+
 def main() -> None:
     """Main function running the MBS valuation process.
 
@@ -306,9 +519,9 @@ def main() -> None:
     cvx_data = cvx_hist.copy()
     sigma_r_data = sigma_r_hist.copy()
     nu_r_data = nu_r_hist.copy()
-    estimation_freq = "B"
-    simulation_freq = "B"
-    simulation_steps = 252
+    estimation_freq = "W-FRI"
+    simulation_freq = "W-FRI"
+    simulation_steps = 52
     num_paths = 100  # Number of Monte Carlo paths
 
     # Update X0 for forward data
@@ -364,61 +577,20 @@ def main() -> None:
     C_inf = float(np.mean(cvx_data))
     fig = plot_value_model(oas_data, cvx_data, paths, S_OAS_inf, C_inf)
 
-
-def model_vs_actual(
-    model: JointReversionModel,
-    oas_data: pd.Series,
-    cvx_data: pd.Series,
-    sigma_r_data: pd.Series,
-    nu_r_data: pd.Series,
-    simulation_freq: str,
-    simulation_steps: int,
-    num_paths: int,
-    seed: int,
-):
-    # Perform Monte Carlo simulation
-    # Time steps for estimation and simulation
-
-    S_OAS_inf = float(np.mean(oas_data))
-    C_inf = float(np.mean(cvx_data))
-
-    oas_expected_paths = []
-    cvx_expected_paths = []
-
-    oas_expected = []
-    cvx_expected = []
-
-    for start_date in oas_data.index[:10]:
-        print(start_date.strftime(DATE_FORMAT))
-
-        simulation_dates = pd.date_range(
-            start=start_date, periods=simulation_steps, freq=simulation_freq
-        )
-
-        paths = model.monte_carlo_simulation(
-            S_OAS_init=oas_data.loc[start_date],
-            C_init=cvx_data.loc[start_date],
-            S_OAS_inf=S_OAS_inf,
-            C_inf=C_inf,
-            sigma_r_forward=sigma_r_data.loc[simulation_dates],
-            nu_r_forward=nu_r_data.loc[simulation_dates],
-            simulation_dates=simulation_dates,
-            num_paths=num_paths,
-            seed=seed,
-            verbose=False,
-        )
-        oas_expected_path = paths["oas"].mean(axis=1)
-        cvx_expected_path = paths["cvx"].mean(axis=1)
-
-        oas_expected_paths.append(oas_expected_path)
-        cvx_expected_paths.append(cvx_expected_path)
-
-        oas_expected.append((simulation_dates[-1], float(oas_expected_path.iloc[-1])))
-        cvx_expected.append((simulation_dates[-1], float(cvx_expected_path.iloc[-1])))
-
-    oas_expected = pd.DataFrame(oas_expected, columns=["date", "oas"])
-    cvx_expected = pd.DataFrame(cvx_expected, columns=["date", "cvx"])
-    print()
+    # Model vs Actual
+    model_vs_actual(
+        model,
+        oas_data,
+        cvx_data,
+        sigma_r_data,
+        nu_r_data,
+        simulation_freq,
+        simulation_steps,
+        num_paths,
+        seed,
+        steps=255,
+        verbose=True,
+    )
 
 
 if __name__ == "__main__":
