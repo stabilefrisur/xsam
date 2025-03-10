@@ -12,8 +12,8 @@ def run_value_model(
     cvx_data: pd.Series,
     sigma_r_data: pd.Series,
     nu_r_data: pd.Series,
-    enable_convexity: bool,
-    enable_volatility: bool,
+    enable_spread_cvx: bool,
+    enable_rate_vol: bool,
     enable_mle: bool,
     estimation_freq: str,
     simulation_freq: str,
@@ -25,30 +25,28 @@ def run_value_model(
     verbose: bool = False,
 ) -> tuple[dict[str, pd.DataFrame], JointReversionModel]:
     """Run the MBS valuation model. The function performs the following steps:
-    1. Perform stationarity tests for OAS and Convexity.
-    2. Estimate model parameters using OLS to generate initial guess for MLE.
-    3. Estimate model parameters using MLE.
-    4. Perform Monte Carlo simulation.
-    5. Plot historical data and Monte Carlo paths.
+    1. Resample historical data to the estimation frequency.
+    2. Initialise the model.
+    3. Perform stationarity tests for OAS and Convexity.
+    4. Estimate model parameters using OLS.
+    5. Estimate model parameters using MLE if enabled.
+    6. Perform Monte Carlo simulation.
 
     Args:
         oas_data (pd.Series): Historical data for OAS.
         cvx_data (pd.Series): Historical data for Convexity.
         sigma_r_data (pd.Series): Historical data for Rates Volatility.
         nu_r_data (pd.Series): Historical data for Rates Volatility of Volatility.
-        S_OAS_inf (float): Reversion level for OAS.
-        C_inf (float): Reversion level for Convexity.
-        enable_convexity (bool): Flag to enable Convexity.
-        enable_volatility (bool): Flag to enable Volatility.
+        enable_spread_cvx (bool): Flag to enable Convexity.
+        enable_rate_vol (bool): Flag to enable Volatility.
         enable_mle (bool): Flag to enable MLE estimation.
-        S_OAS_init (float): Initial value for OAS at the start of the simulation.
-        C_init (float): Initial value for Convexity at the start of the simulation.
-        sigma_r_forward (float | pd.Series): Forward data for Rates Volatility.
-        nu_r_forward (float | pd.Series): Forward data for Rates Volatility of Volatility.
-        simulation_dates (pd.DatetimeIndex): Dates for Monte Carlo simulation.
+        estimation_freq (str): Frequency for estimation.
+        simulation_freq (str): Frequency for Monte Carlo simulation.
+        simulation_steps (int): Number of simulation steps.
         num_paths (int): Number of Monte Carlo paths.
         seed (int): Seed for reproducibility.
-        param_overrides (dict[str, float], optional): Dictionary of model and simulation parameter overrides.
+        model_param_overrides (dict[str, float], optional): Model parameter overrides. Defaults to {}.
+        simulation_param_overrides (dict[str, float], optional): Simulation parameter overrides. Defaults to {}.
         verbose (bool, optional): Flag to enable verbose output. Defaults to False.
     """
 
@@ -67,10 +65,10 @@ def run_value_model(
         "nu_r_forward": float(nu_r_data.iloc[-1]),
     }
 
-    # Override parameters if specified
+    # Override simulation parameters if specified
     simulation_params.update(simulation_param_overrides)
 
-    # Time steps for estimation and simulation
+    # Derive time steps for simulation in both estimation and simulation frequencies
     start_date = oas_data.index[-1]
     simulation_dates = pd.date_range(
         start=start_date, periods=simulation_steps, freq=simulation_freq
@@ -104,8 +102,8 @@ def run_value_model(
     # Initialise the model
     model = JointReversionModel(
         dt=simulation_dt,
-        enable_convexity=enable_convexity,
-        enable_volatility=enable_volatility,
+        enable_spread_cvx=enable_spread_cvx,
+        enable_rate_vol=enable_rate_vol,
     )
 
     # Stationarity tests
@@ -263,7 +261,7 @@ def model_vs_actual(
     simulation_steps: int,
     num_paths: int,
     seed: int,
-    steps: int = 1,
+    step_interval: int = 1,
     verbose: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[pd.Series], list[pd.Series]]:
     """Compare model expected vs actual change in OAS and Convexity.
@@ -278,7 +276,7 @@ def model_vs_actual(
         simulation_steps (int): Number of simulation steps.
         num_paths (int): Number of Monte Carlo paths.
         seed (int): Seed for reproducibility.
-        steps (int, optional): Number of steps to skip for simulation. Defaults to 1.
+        step_interval (int, optional): Interval for simulation steps. Defaults to 1.
         verbose (bool, optional): Flag to enable verbose output. Defaults to False.
 
     Returns:
@@ -314,7 +312,7 @@ def model_vs_actual(
     )
     final_start = oas_data.index.get_loc(final_simulation_dates[0])
 
-    for start in oas_data.index[:final_start:steps]:
+    for start in oas_data.index[:final_start:step_interval]:
         if verbose:
             print(start.strftime(DATE_FORMAT))
 
@@ -420,6 +418,23 @@ def model_vs_actual(
         axis=1,
     )
 
+    return oas, cvx, oas_expected_paths, cvx_expected_paths
+
+
+def plot_model_vs_actual(
+    oas: pd.DataFrame,
+    cvx: pd.DataFrame,
+) -> plt.Figure:
+    """Plot model expected vs actual change in OAS and Convexity.
+
+    Args:
+        oas (pd.DataFrame): OAS DataFrame with actual and expected change.
+        cvx (pd.DataFrame): Convexity DataFrame with actual and expected change.
+
+    Returns:
+        plt.Figure: Figure object with the plot.
+    """
+
     # Plot OAS and Convexity expected vs actual change in scatter plot with regression line
     fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12, 6))
 
@@ -463,22 +478,19 @@ def model_vs_actual(
 
     plt.show()
 
-    return oas, cvx, oas_expected_paths, cvx_expected_paths
+    return fig
 
 
 def main() -> None:
     """Main function running the MBS valuation process.
 
     The main function performs the following steps:
-    1. Set seed for reproducibility.
-    2. Define variable parameters for the model.
-    3. Generate training data for ZV, OAS, Rates Vol, and Rates Vol of Vol.
-    4. Generate forward data for Rates Vol and Rates Vol of Vol.
-    5. Perform stationarity tests for OAS and Convexity.
-    6. Estimate model parameters using OLS to generate initial guess for MLE.
-    7. Estimate model parameters using MLE.
-    8. Perform Monte Carlo simulation.
-    9. Plot historical data and Monte Carlo paths.
+    1. Generate historical data.
+    2. Generate forward data.
+    3. Run MBS valuation model.
+    4. Plot historical data and Monte Carlo paths.
+    5. Compare model expected vs actual change in OAS and Convexity.
+    6. Plot model vs actual.
     """
     # Set seed for reproducibility
     seed = 42
@@ -541,8 +553,8 @@ def main() -> None:
     )
 
     # Model parameters
-    enable_convexity = True
-    enable_volatility = True
+    enable_spread_cvx = True
+    enable_rate_vol = True
     enable_mle = False
     model_param_overrides = {
         # "kappa": 0.6,
@@ -559,8 +571,8 @@ def main() -> None:
         cvx_data,
         sigma_r_data,
         nu_r_data,
-        enable_convexity,
-        enable_volatility,
+        enable_spread_cvx,
+        enable_rate_vol,
         enable_mle,
         estimation_freq,
         simulation_freq,
@@ -578,7 +590,7 @@ def main() -> None:
     fig = plot_value_model(oas_data, cvx_data, paths, S_OAS_inf, C_inf)
 
     # Model vs Actual
-    model_vs_actual(
+    oas, cvx, oas_expected_paths, cvx_expected_paths = model_vs_actual(
         model,
         oas_data,
         cvx_data,
@@ -588,9 +600,12 @@ def main() -> None:
         simulation_steps,
         num_paths,
         seed,
-        steps=255,
+        step_interval=255,
         verbose=True,
     )
+
+    # Plot model vs actual
+    fig = plot_model_vs_actual(oas, cvx)
 
 
 if __name__ == "__main__":
