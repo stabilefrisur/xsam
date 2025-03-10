@@ -12,24 +12,23 @@ class JointReversionModel:
     dC = lambda * (C_inf - C) * dt + (beta_0 * S_OAS + beta_1 * sigma_r + beta_2 * nu_r) * dt + sigma_C * dW_C
     where:
     - S_OAS is the OAS spread.
-    - C is the Convexity.
+    - C is the spread Convexity.
     - kappa and lambda are the reversion speeds for OAS and Convexity, respectively.
+    - S_OAS_inf and C_inf are the long-term means of OAS and Convexity, respectively.
     - gamma and beta are the interest rate interaction coefficients for OAS and Convexity, respectively.
+    - sigma_r is the volatility of interest rates.
+    - nu_r is the volatility of volatility of interest rates.
     - sigma_O is the volatility of OAS.
-    - delta is the convexity volatility coefficient.
     - sigma_C is the volatility of Convexity.
-    - dt is the time step.
+    - dt is the time step as a fraction of the investment horizon.
     - dW_O and dW_C are Wiener processes for OAS and Convexity, respectively.
 
     The model is simulated using the Euler-Maruyama method with the following parameters:
     - S_OAS_init: Initial value of OAS spread.
     - C_init: Initial value of Convexity.
-    - S_OAS_inf: Long-term mean of OAS spread.
-    - C_inf: Convexity of the current coupon bond (or TBA).
-    - sigma_r: Volatility of interest rates.
-    - nu_r: Volatility of volatility of interest rates.
-    - steps: Number of time steps.
-    - seed: Random seed for reproducibility.
+    - sigma_r_forward: Volatility of interest rates over the investment horizon.
+    - nu_r_forward: Volatility of volatility of interest rates over the investment horizon.
+    - steps: Number of time steps of the investment horizon.
 
     For educational and illustrative purposes only. Not intended for trading or investment purposes.
     Use at your own risk. No warranty or guarantee of accuracy or reliability.
@@ -44,8 +43,9 @@ class JointReversionModel:
         lambda_: float = 0.0,
         beta: list[float] = [0.0, 0.0, 0.0],
         sigma_C: float = 0.0,
-        enable_convexity: bool = True,
-        enable_volatility: bool = True,
+        enable_spread_cvx: bool = True,
+        enable_rate_vol: bool = True,
+        enable_local_vol: bool = True,
     ):
         """Initialize the Joint Reversion Model.
 
@@ -58,8 +58,8 @@ class JointReversionModel:
             lambda_ (float): Reversion speed for Convexity.
             beta (list[float]): Interest rate interaction coefficients for Convexity.
             sigma_C (float): Volatility of Convexity.
-            enable_convexity (bool, optional): Enable convexity interaction. Defaults to True.
-            enable_volatility (bool, optional): Enable interest rate interaction. Defaults to True.
+            enable_spread_cvx (bool, optional): Enable convexity interaction. Defaults to True.
+            enable_rate_vol (bool, optional): Enable interest rate interaction. Defaults to True.
         """
         self.dt = dt
         self.kappa = kappa
@@ -69,8 +69,9 @@ class JointReversionModel:
         self.sigma_O_0 = sigma_O_0
         self.delta = delta
         self.sigma_C = sigma_C
-        self.enable_convexity = enable_convexity
-        self.enable_volatility = enable_volatility
+        self.enable_spread_cvx = enable_spread_cvx
+        self.enable_rate_vol = enable_rate_vol
+        self.enable_local_vol = enable_local_vol
 
     def get_parameters(self) -> dict[str, float | list[float]]:
         """Get the parameters of the Joint Reversion Model.
@@ -87,8 +88,9 @@ class JointReversionModel:
             "lambda": self.lambda_,
             "beta": self.beta,
             "sigma_C": self.sigma_C,
-            "enable_convexity": self.enable_convexity,
-            "enable_volatility": self.enable_volatility,
+            "enable_spread_cvx": self.enable_spread_cvx,
+            "enable_rate_vol": self.enable_rate_vol,
+            "enable_local_vol": self.enable_local_vol,
         }
     
     def update_parameters(
@@ -101,8 +103,9 @@ class JointReversionModel:
         lambda_: float = None,
         beta: list[float] = None,
         sigma_C: float = None,
-        enable_convexity: bool = None,
-        enable_volatility: bool = None,
+        enable_spread_cvx: bool = None,
+        enable_rate_vol: bool = None,
+        enable_local_vol: bool = None,
     ) -> None:
         """Update the parameters of the Joint Reversion Model.
 
@@ -115,8 +118,8 @@ class JointReversionModel:
             lambda_ (float): Reversion speed for Convexity.
             beta (list[float]): Interest rate interaction coefficients for Convexity.
             sigma_C (float): Volatility of Convexity.
-            enable_convexity (bool): Enable convexity interaction.
-            enable_volatility (bool): Enable interest rate interaction. 
+            enable_spread_cvx (bool): Enable convexity interaction.
+            enable_rate_vol (bool): Enable interest rate interaction. 
         """
         if dt is not None:
             self.dt = dt
@@ -134,10 +137,12 @@ class JointReversionModel:
             self.beta = beta
         if sigma_C is not None:
             self.sigma_C = sigma_C
-        if enable_convexity is not None:
-            self.enable_convexity = enable_convexity
-        if enable_volatility is not None:
-            self.enable_volatility = enable_volatility
+        if enable_spread_cvx is not None:
+            self.enable_spread_cvx = enable_spread_cvx
+        if enable_rate_vol is not None:
+            self.enable_rate_vol = enable_rate_vol
+        if enable_local_vol is not None:
+            self.enable_local_vol = enable_local_vol
 
     def estimate_parameters_ols(
         self,
@@ -158,7 +163,8 @@ class JointReversionModel:
             sigma_r (pd.Series): Volatility of interest rates time series.
             nu_r (pd.Series): Volatility of volatility of interest rates time series.
             S_OAS_inf (float): Long-term mean of OAS spread.
-            C_inf (float): Convexity of the current coupon bond (or TBA).
+            C_inf (float): Long-term mean of Convexity.
+            steps (int): Number of time steps of the investment horizon.
             verbose (bool, optional): Print estimated parameters. Defaults to True.
         """
         # Convert pd.Series to np.ndarray for better performance
@@ -171,10 +177,10 @@ class JointReversionModel:
         X_OAS = [S_OAS_inf - S_OAS[:-steps]]
         X_C = [C_inf - C[:-steps]]
 
-        if self.enable_convexity:
+        if self.enable_spread_cvx:
             X_OAS.append(C[:-steps])
             X_C.append(S_OAS[:-steps])
-        if self.enable_volatility:
+        if self.enable_rate_vol:
             X_OAS.extend([sigma_r[:-steps], nu_r[:-steps]])
             X_C.extend([sigma_r[:-steps], nu_r[:-steps]])
 
@@ -186,11 +192,11 @@ class JointReversionModel:
         # OLS regression for OAS
         ols_OAS = np.linalg.lstsq(X_OAS, y_OAS, rcond=None)[0]
         kappa = ols_OAS[0]
-        if not self.enable_convexity and not self.enable_volatility:
+        if not self.enable_spread_cvx and not self.enable_rate_vol:
             gamma = [0.0, 0.0, 0.0]
-        elif self.enable_convexity and not self.enable_volatility:
+        elif self.enable_spread_cvx and not self.enable_rate_vol:
             gamma = [ols_OAS[1]] + [0.0, 0.0]
-        elif not self.enable_convexity and self.enable_volatility:
+        elif not self.enable_spread_cvx and self.enable_rate_vol:
             gamma = [0.0] + list(ols_OAS[1:])
         else:
             gamma = list(ols_OAS[1:])
@@ -198,11 +204,11 @@ class JointReversionModel:
         # OLS regression for Convexity
         ols_C = np.linalg.lstsq(X_C, y_C, rcond=None)[0]
         lambda_ = ols_C[0]
-        if not self.enable_convexity and not self.enable_volatility:
+        if not self.enable_spread_cvx and not self.enable_rate_vol:
             beta = [0.0, 0.0, 0.0]
-        elif self.enable_convexity and not self.enable_volatility:
+        elif self.enable_spread_cvx and not self.enable_rate_vol:
             beta = [ols_C[1]] + [0.0, 0.0]
-        elif not self.enable_convexity and self.enable_volatility:
+        elif not self.enable_spread_cvx and self.enable_rate_vol:
             beta = [0.0] + list(ols_C[1:])
         else:
             beta = list(ols_C[1:])
@@ -216,7 +222,7 @@ class JointReversionModel:
             sigma_O_0, delta = params
             return np.sum((residuals_OAS**2 - (sigma_O_0**2 + delta * C[:-steps] ** 2)) ** 2)
 
-        if self.enable_convexity:
+        if self.enable_local_vol:
             initial_guess = self.sigma_O_0, self.delta
             sigma_O_0, delta = minimize(variance_function, initial_guess).x
         else:
@@ -262,9 +268,8 @@ class JointReversionModel:
             sigma_r (pd.Series): Volatility of interest rates time series.
             nu_r (pd.Series): Volatility of volatility of interest rates time series.
             S_OAS_inf (float): Long-term mean of OAS spread.
-            C_inf (float): Convexity of the current coupon bond (or TBA).
-            dt (float): Time step size.
-            initial_guess (tuple[float, ..., float], optional): Initial guess for the parameters. Defaults to (0.1, ..., 0.1).
+            C_inf (float): Long-term mean of Convexity.
+            dt (float): Time fraction of one step of the investment horizon.
             verbose (bool, optional): Print estimated parameters. Defaults to True.
         """
         S_OAS = S_OAS.values
@@ -291,21 +296,21 @@ class JointReversionModel:
                 nu_r_prev = nu_r[t - 1]
 
                 S_OAS_mean = S_OAS_prev + kappa * (S_OAS_inf - S_OAS_prev) * dt
-                if self.enable_convexity:
+                if self.enable_spread_cvx:
                     S_OAS_mean += gamma[0] * C_prev * dt
-                if self.enable_volatility:
+                if self.enable_rate_vol:
                     S_OAS_mean += (gamma[1] * sigma_r_prev + gamma[2] * nu_r_prev) * dt
 
                 sigma_O = (
                     np.sqrt(sigma_O_0**2 + delta * C_prev**2)
-                    if self.enable_convexity
+                    if self.enable_local_vol
                     else sigma_O_0
                 )
 
                 C_mean = C_prev + lambda_ * (C_inf - C_prev) * dt
-                if self.enable_convexity:
+                if self.enable_spread_cvx:
                     C_mean += beta[0] * S_OAS_prev * dt
-                if self.enable_volatility:
+                if self.enable_rate_vol:
                     C_mean += (beta[1] * sigma_r_prev + beta[2] * nu_r_prev) * dt
 
                 log_likelihood += -0.5 * np.log(2 * np.pi * sigma_O**2 * dt) - 0.5 * (
@@ -431,20 +436,20 @@ class JointReversionModel:
         simulation_dates: pd.DatetimeIndex,
         rng: np.random.Generator = None,
     ) -> tuple[pd.Series, pd.Series, pd.Series]:
-        """Simulate the joint reversion model for OAS and Convexity.
+        """Simulate the joint reversion model for OAS and Convexity (and Volatility of OAS).
 
         Args:
             S_OAS_init (float): Initial value of OAS spread.
             C_init (float): Initial value of Convexity.
             S_OAS_inf (float): Long-term mean of OAS spread.
-            C_inf (float): Convexity of the current coupon bond (or TBA).
+            C_inf (float): Long-term mean of Convexity.
             sigma_r (pd.Series): Volatility of interest rates.
             nu_r (pd.Series): Volatility of volatility of interest rates.
             simulation_dates (pd.DatetimeIndex): Dates for the simulation.
             rng (np.random.Generator, optional): Random number generator. Defaults to None.
 
         Returns:
-            tuple[pd.Series, pd.Series, pd.Series]: Simulated OAS, Convexity, and Volatility of OAS.
+            tuple[pd.Series, pd.Series, pd.Series]: Simulated paths of OAS, Convexity, and Volatility of OAS.
         """
         if rng is None:
             rng = np.random.default_rng()
@@ -461,14 +466,14 @@ class JointReversionModel:
             Z_O = rng.normal()
             Z_C = rng.normal()
 
-            if self.enable_convexity:
+            if self.enable_spread_cvx:
                 gamma_term = self.gamma[0] * float(C.iloc[t - 1])
                 beta_term = self.beta[0] * float(S_OAS.iloc[t - 1])
             else:
                 gamma_term = 0
                 beta_term = 0
 
-            if self.enable_volatility:
+            if self.enable_rate_vol:
                 gamma_term += (
                     self.gamma[1] * float(sigma_r.iloc[t - 1]) 
                     + self.gamma[2] * float(nu_r.iloc[t - 1])
@@ -513,15 +518,16 @@ class JointReversionModel:
         """Perform Monte Carlo simulation of the Joint Reversion Model.
 
         Args:
-            model (JointReversionModel): Joint Reversion Model instance.
             S_OAS_init (float): Initial value of OAS spread.
             C_init (float): Initial value of Convexity.
-            C_inf (float): Convexity of the current coupon bond (or TBA).
+            S_OAS_inf (float): Long-term mean of OAS spread.
+            C_inf (float): Long-term mean of Convexity.
             sigma_r_forward (float | pd.Series): Volatility of interest rates.
             nu_r_forward (float | pd.Series): Volatility of volatility of interest rates.
             simulation_dates (pd.DatetimeIndex): Dates for the simulation.
             num_paths (int): Number of Monte Carlo paths.
             seed (int, optional): Random seed for reproducibility. Defaults to None.
+            verbose (bool, optional): Print simulation results. Defaults to True.
 
         Returns:
             dict[str, pd.DataFrame]: Simulated paths of OAS, Convexity, and Volatility of OAS.
