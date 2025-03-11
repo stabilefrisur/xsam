@@ -14,6 +14,7 @@ def run_value_model(
     nu_r_data: pd.Series,
     enable_spread_cvx: bool,
     enable_rate_vol: bool,
+    enable_local_vol: bool,
     enable_mle: bool,
     estimation_freq: str,
     simulation_freq: str,
@@ -23,6 +24,7 @@ def run_value_model(
     model_param_overrides: dict[str, float] = {},
     simulation_param_overrides: dict[str, float] = {},
     verbose: bool = False,
+    run_adf: bool = False,
 ) -> tuple[dict[str, pd.DataFrame], JointReversionModel]:
     """Run the MBS valuation model. The function performs the following steps:
     1. Resample historical data to the estimation frequency.
@@ -39,6 +41,7 @@ def run_value_model(
         nu_r_data (pd.Series): Historical data for Rates Volatility of Volatility.
         enable_spread_cvx (bool): Flag to enable Convexity.
         enable_rate_vol (bool): Flag to enable Volatility.
+        enable_local_vol (bool): Flag to enable Local Volatility.
         enable_mle (bool): Flag to enable MLE estimation.
         estimation_freq (str): Frequency for estimation.
         simulation_freq (str): Frequency for Monte Carlo simulation.
@@ -48,12 +51,13 @@ def run_value_model(
         model_param_overrides (dict[str, float], optional): Model parameter overrides. Defaults to {}.
         simulation_param_overrides (dict[str, float], optional): Simulation parameter overrides. Defaults to {}.
         verbose (bool, optional): Flag to enable verbose output. Defaults to False.
+        run_adf (bool, optional): Flag to enable ADF stationarity tests. Defaults to False.
     """
-
-    oas_data = oas_data.resample(estimation_freq).last().ffill()
-    cvx_data = cvx_data.resample(estimation_freq).last().ffill()
-    sigma_r_data = sigma_r_data.resample(estimation_freq).last().ffill()
-    nu_r_data = nu_r_data.resample(estimation_freq).last().ffill()
+    # Resample historical data to the estimation frequency
+    oas_data = oas_data.asfreq('D').ffill().asfreq(estimation_freq)
+    cvx_data = cvx_data.asfreq('D').ffill().asfreq(estimation_freq)
+    sigma_r_data = sigma_r_data.asfreq('D').ffill().asfreq(estimation_freq)
+    nu_r_data = nu_r_data.asfreq('D').ffill().asfreq(estimation_freq)
 
     # Monte Carlo simulation parameters
     simulation_params = {
@@ -104,10 +108,12 @@ def run_value_model(
         dt=simulation_dt,
         enable_spread_cvx=enable_spread_cvx,
         enable_rate_vol=enable_rate_vol,
+        enable_local_vol=enable_local_vol,
     )
 
     # Stationarity tests
-    adf_OAS, adf_C = model.stationarity_tests(oas_data, cvx_data, verbose=verbose)
+    if run_adf:
+        adf_OAS, adf_C = model.stationarity_tests_adf(oas_data, cvx_data, verbose=verbose)
 
     # Estimate model parameters using OLS
     model.estimate_parameters_ols(
@@ -496,13 +502,9 @@ def main() -> None:
     seed = 42
 
     # Define training data parameters
-    # zv_params = {'mu': 0.005, 'theta': 0.01, 'sigma': 0.002, 'X0': 0.008}
-    # oas_params = {'mu': 0.003, 'theta': 0.02, 'sigma': 0.001, 'X0': 0.002}
     zv_params = {"mu": 50, "theta": 0.01, "sigma": 20, "X0": 80}
     oas_params = {"mu": 30, "theta": 0.02, "sigma": 10, "X0": 20}
     zv_oas_rho = 0.8
-    # sigma_r_params = {'mu': 0.002, 'theta': 0.01, 'sigma': 0.001, 'X0': 0.002}
-    # nu_r_params = {'mu': 0.001, 'theta': 0.01, 'sigma': 0.001, 'X0': 0.001}
     sigma_r_params = {"mu": 20, "theta": 0.01, "sigma": 10, "X0": 20}
     nu_r_params = {"mu": 10, "theta": 0.01, "sigma": 10, "X0": 10}
 
@@ -555,6 +557,7 @@ def main() -> None:
     # Model parameters
     enable_spread_cvx = True
     enable_rate_vol = True
+    enable_local_vol = True
     enable_mle = False
     model_param_overrides = {
         # "kappa": 0.6,
@@ -573,6 +576,7 @@ def main() -> None:
         nu_r_data,
         enable_spread_cvx,
         enable_rate_vol,
+        enable_local_vol,
         enable_mle,
         estimation_freq,
         simulation_freq,
