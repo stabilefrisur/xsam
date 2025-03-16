@@ -881,7 +881,7 @@ def evaluate_value_model(
         k: (v["OAS"].loc[:, cols].dropna(), v["Model"])
         for k, v in complexity_results.items()
     }
-    ols_vs_mle_oas = {
+    estimation_oas = {
         k: (v["OAS"].loc[:, cols].dropna(), v["Model"])
         for k, v in estimation_results.items()
     }
@@ -894,9 +894,9 @@ def evaluate_value_model(
             k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
             for k, (v, m) in complexity_oas.items()
         },
-        "ols_vs_mle": {
+        "estimation": {
             k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
-            for k, (v, m) in ols_vs_mle_oas.items()
+            for k, (v, m) in estimation_oas.items()
         },
     }
 
@@ -908,7 +908,7 @@ def evaluate_value_model(
         k: (v["Convexity"].loc[:, cols].dropna(), v["Model"])
         for k, v in complexity_results.items()
     }
-    ols_vs_mle_cvx = {
+    estimation_cvx = {
         k: (v["Convexity"].loc[:, cols].dropna(), v["Model"])
         for k, v in estimation_results.items()
     }
@@ -921,9 +921,9 @@ def evaluate_value_model(
             k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
             for k, (v, m) in complexity_cvx.items()
         },
-        "ols_vs_mle": {
+        "estimation": {
             k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
-            for k, (v, m) in ols_vs_mle_cvx.items()
+            for k, (v, m) in estimation_cvx.items()
         },
     }
 
@@ -998,6 +998,6 @@ if __name__ == "__main__":
     )
 
     print("\nModel evaluation results:")
-    print(f"OAS evaluation:\n{results['oas_evaluation']}")
-    print(f"CVX evaluation:\n{results['cvx_evaluation']}")
+    print(f"OAS evaluation:\n{results['OAS Eval']}")
+    print(f"CVX evaluation:\n{results['Convexity Eval']}")
     print("\nModel evaluation complete.")
