@@ -360,7 +360,25 @@ class JointReversionModel:
         self.lambda_ = lambda_
         self.beta = beta
         self.sigma_C = sigma_C
-    
+
+    # function to get the number of predictors for the model based on the enabled features
+    def get_num_predictors(self) -> int:
+        """Get the number of predictors for the model.
+
+        Returns:
+            int: Number of predictors.
+        """
+        # Check how many paramters are estimated to be non-zero
+        num_predictors = 0
+        num_predictors += 1 if self.kappa != 0 else 0
+        num_predictors += sum(1 for g in self.gamma if g != 0)
+        num_predictors += 1 if self.sigma_O_0 != 0 else 0
+        num_predictors += 1 if self.delta != 0 else 0
+        num_predictors += 1 if self.lambda_ != 0 else 0
+        num_predictors += sum(1 for b in self.beta if b != 0)
+        num_predictors += 1 if self.sigma_C != 0 else 0
+        return num_predictors
+
     @staticmethod
     def stationarity_tests(
         S_OAS: pd.Series,
@@ -497,7 +515,11 @@ class JointReversionModel:
                 + self.sigma_C * np.sqrt(self.dt) * Z_C
             )
 
-            sigma_O.iloc[t] = np.sqrt(self.sigma_O_0**2 + self.delta * C.iloc[t]**2)
+            variance_O = self.sigma_O_0**2 + self.delta * C.iloc[t]**2
+            if variance_O >= 0:
+                sigma_O.iloc[t] = np.sqrt(variance_O)
+            else:
+                sigma_O.iloc[t] = np.nan
 
         return S_OAS, C, sigma_O
 

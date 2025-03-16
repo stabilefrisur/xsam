@@ -204,6 +204,8 @@ Update the project environment
 uv sync
 ```
 
+Delete the dist directory
+
 Build Python packages into source distributions and wheels
 ```bash
 uv build
