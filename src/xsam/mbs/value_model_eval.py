@@ -482,6 +482,8 @@ def plot_model_vs_actual(
     axs[0].text(
         0.05, 0.9, f"Adj R\u00b2 = {adj_r2:.2f}", transform=axs[0].transAxes, va="top"
     )
+    # Add 45 degree line
+    axs[0].plot(x, x, color="black", linestyle="--")
     axs[0].set_title("OAS Expected vs Actual Change")
     axs[0].set_xlabel("Actual Change")
     axs[0].set_ylabel("Expected Change")
@@ -504,6 +506,8 @@ def plot_model_vs_actual(
     axs[1].text(
         0.05, 0.9, f"Adj R\u00b2 = {adj_r2:.2f}", transform=axs[1].transAxes, va="top"
     )
+    # Add 45 degree line
+    axs[1].plot(x, x, color="black", linestyle="--")
     axs[1].set_title("Convexity Expected vs Actual Change")
     axs[1].set_xlabel("Actual Change")
     axs[1].set_ylabel("Expected Change")
