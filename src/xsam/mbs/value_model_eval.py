@@ -527,7 +527,11 @@ def evaluate_frequency(
     if verbose:
         print("\nEvaluating model on different frequencies...")
 
-    frequencies = {"daily": "B", "weekly": "W-FRI", "monthly": "BME"}
+    frequencies = {
+        "daily": "B", 
+        "weekly": "W-FRI", 
+        "monthly": "BME"
+        }
     output = {}
 
     for freq_name, freq in frequencies.items():
@@ -591,27 +595,42 @@ def evaluate_complexity(
     estimation_freq = "B"
     simulation_freq = "W-FRI"
     complexities = {
-        "mean_reversion_only": {
+        "mean reversion only": {
             "enable_spread_cvx": False,
             "enable_rate_vol": False,
             "enable_local_vol": False,
         },
-        "include_spread_cvx": {
+        "spread cvx": {
             "enable_spread_cvx": True,
             "enable_rate_vol": False,
             "enable_local_vol": False,
         },
-        "include_rate_vol": {
+        "rate vol": {
             "enable_spread_cvx": False,
             "enable_rate_vol": True,
             "enable_local_vol": False,
         },
-        "include_local_vol": {
+        "local vol": {
             "enable_spread_cvx": False,
             "enable_rate_vol": False,
             "enable_local_vol": True,
         },
-        "full_model": {
+        "spread cvx + rate vol": {
+            "enable_spread_cvx": True,
+            "enable_rate_vol": True,
+            "enable_local_vol": False,
+        },
+        "spread cvx + local vol": {
+            "enable_spread_cvx": True,
+            "enable_rate_vol": False,
+            "enable_local_vol": True,
+        },
+        "rate vol + local vol": {
+            "enable_spread_cvx": False,
+            "enable_rate_vol": True,
+            "enable_local_vol": True,
+        },
+        "full model": {
             "enable_spread_cvx": True,
             "enable_rate_vol": True,
             "enable_local_vol": True,
@@ -931,7 +950,7 @@ def evaluate_value_model(
         flattened_data = []
         for topic, cases in evaluation_dict.items():
             for case, metrics in cases.items():
-                flattened_entry = {"topic": topic, "case": case}
+                flattened_entry = {"Topic": topic, "Case": case}
                 flattened_entry.update(metrics)
                 flattened_data.append(flattened_entry)
         return pd.DataFrame(flattened_data)
@@ -992,7 +1011,7 @@ if __name__ == "__main__":
         sigma_r_data,
         nu_r_data,
         seed=seed,
-        step_interval=3 * 21,
+        step_interval=6 * 21,
         verbose=True,
     )
 
