@@ -413,26 +413,25 @@ def run_model_vs_actual(
         cvx_actual_change, columns=["Date", "Actual Change"]
     ).set_index("Date")
 
-    oas = pd.concat(
-        [
-            oas_actual_start,
-            oas_actual_end,
-            oas_expected,
-            oas_actual_change,
-            oas_expected_change,
-        ],
-        axis=1,
-    )
-    cvx = pd.concat(
-        [
-            cvx_actual_start,
-            cvx_actual_end,
-            cvx_expected,
-            cvx_actual_change,
-            cvx_expected_change,
-        ],
-        axis=1,
-    )
+    oas = [
+        # oas_actual_start,
+        oas_actual_end,
+        oas_expected,
+        oas_actual_change,
+        oas_expected_change,
+    ]
+    oas = [ser[~ser.index.duplicated(keep="last")] for ser in oas]
+    oas = pd.concat(oas, axis=1)
+
+    cvx = [
+        # cvx_actual_start,
+        cvx_actual_end,
+        cvx_expected,
+        cvx_actual_change,
+        cvx_expected_change,
+    ]
+    cvx = [ser[~ser.index.duplicated(keep="last")] for ser in cvx]
+    cvx = pd.concat(cvx, axis=1)
 
     output = {
         "OAS": oas,
