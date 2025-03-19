@@ -8,6 +8,7 @@ from xsam.mbs.value_model_eval import (
     plot_value_model,
     run_model_vs_actual,
     run_value_model,
+    summarize_ols,
 )
 
 
@@ -111,6 +112,9 @@ def main() -> None:
         simulation_param_overrides=simulation_param_overrides,
         verbose=True,
     )
+
+    # Summarize OLS results
+    ols_results = summarize_ols(model)
 
     # Plot historical data and Monte Carlo paths
     S_OAS_inf = float(np.mean(oas_data))

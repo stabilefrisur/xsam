@@ -1,12 +1,13 @@
-import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import statsmodels.api as sm
 
 from xsam.constants import DATE_FORMAT
 from xsam.mbs.mock_data import generate_historical_data
 from xsam.mbs.value_model import JointReversionModel
+from xsam import save
 
 
 def run_value_model(
@@ -78,9 +79,7 @@ def run_value_model(
 
     # Derive time steps for simulation in both estimation and simulation frequencies
     start_date = oas_data.index[-1]
-    simulation_dates = pd.date_range(
-        start=start_date, periods=simulation_steps, freq=simulation_freq
-    )
+    simulation_dates = pd.date_range(start=start_date, periods=simulation_steps, freq=simulation_freq)
     simulation_dt = 1 / simulation_steps
     simulation_dates_estimation_freq = pd.date_range(
         start=simulation_dates[0], end=simulation_dates[-1], freq=estimation_freq
@@ -117,9 +116,7 @@ def run_value_model(
 
     # Stationarity tests
     if run_adf:
-        adf_OAS, adf_C = model.stationarity_tests_adf(
-            oas_data, cvx_data, verbose=verbose
-        )
+        adf_OAS, adf_C = model.stationarity_tests_adf(oas_data, cvx_data, verbose=verbose)
 
     # Estimate model parameters using OLS
     model.estimate_parameters_ols(
@@ -170,101 +167,35 @@ def plot_value_model(
     S_OAS_inf: float,
     C_inf: float,
 ) -> plt.Figure:
-    """Plot historical data and Monte Carlo paths for OAS and Convexity.
-
-    Args:
-        oas_data (pd.Series): Historical data for OAS.
-        cvx_data (pd.Series): Historical data for Convexity.
-        paths (dict[str, pd.DataFrame]): Monte Carlo paths for OAS and Convexity.
-        S_OAS_inf (float): Reversion level for OAS.
-        C_inf (float): Reversion level for Convexity.
-
-    Returns:
-        plt.Figure: Figure object with the plot.
-    """
-    # Plot historical data and Monte Carlo paths
+    """Plot historical data and Monte Carlo paths for OAS and Convexity."""
     fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(10, 8))
-
     axs = axs.flatten()
 
-    # Plot OAS
-    paths_OAS = paths["oas"]
-    OAS = pd.concat([oas_data, paths_OAS], axis=1)
-    axs[0].plot(OAS.iloc[:, 0], color="darkblue", label="OAS")
-    axs[0].plot(OAS.iloc[:, 1:], color="lightblue", alpha=0.1)
-    axs[0].plot(
-        OAS.iloc[:, 1:].mean(axis=1),
-        color="darkblue",
-        linestyle=":",
-        label="Projected OAS",
-        alpha=1.0,
-    )
-    axs[0].axhline(
-        y=S_OAS_inf, color="darkblue", linestyle="--", label="Reversion Level"
-    )
-    axs[0].xaxis.set_major_formatter(mdates.ConciseDateFormatter(mdates.AutoDateLocator()))
-    axs[0].set_title("Monte Carlo Simulation of OAS")
-    axs[0].set_xlabel("")
-    axs[0].set_ylabel("OAS")
-    axs[0].legend()
+    def plot_series(ax, data, paths, inf, color, title):
+        combined = pd.concat([data, paths], axis=1)
+        ax.plot(combined.iloc[:, 0], color=color, label=title)
+        ax.plot(combined.iloc[:, 1:], color=color, alpha=0.1)
+        ax.plot(
+            combined.iloc[:, 1:].mean(axis=1),
+            color=color,
+            linestyle=":",
+            label=f"Projected {title}",
+        )
+        ax.axhline(y=inf, color=color, linestyle="--", label="Reversion Level")
+        ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(mdates.AutoDateLocator()))
+        ax.set_title(f"Monte Carlo Simulation of {title}")
+        ax.set_xlabel("")
+        ax.set_ylabel(title)
+        ax.legend()
 
-    # Plot OAS trailing 3x simulation period
-    OAS_trail = OAS.iloc[-len(paths_OAS) * 3 :]
-    axs[1].plot(OAS_trail.iloc[:, 0], color="darkblue", label="OAS")
-    axs[1].plot(OAS_trail.iloc[:, 1:], color="lightblue", alpha=0.1)
-    axs[1].plot(
-        OAS_trail.iloc[:, 1:].mean(axis=1),
-        color="darkblue",
-        linestyle=":",
-        label="Projected OAS",
-        alpha=1.0,
+    plot_series(axs[0], oas_data, paths["oas"], S_OAS_inf, "darkblue", "OAS")
+    plot_series(axs[1], oas_data.iloc[-len(paths["oas"]) * 3 :], paths["oas"], S_OAS_inf, "darkblue", "OAS - Zoomed In")
+    plot_series(axs[2], cvx_data, paths["cvx"], C_inf, "darkgreen", "Convexity")
+    plot_series(
+        axs[3], cvx_data.iloc[-len(paths["cvx"]) * 3 :], paths["cvx"], C_inf, "darkgreen", "Convexity - Zoomed In"
     )
-    axs[1].axhline(
-        y=S_OAS_inf, color="darkblue", linestyle="--", label="Reversion Level"
-    )
-    axs[1].xaxis.set_major_formatter(mdates.ConciseDateFormatter(mdates.AutoDateLocator()))
-    axs[1].set_title("Monte Carlo Simulation of OAS - Zoomed In")
-    axs[1].set_xlabel("")
-    axs[1].set_ylabel("OAS")
-    axs[1].legend()
-
-    # Plot Convexity
-    paths_C = paths["cvx"]
-    C = pd.concat([cvx_data, paths_C], axis=1)
-    axs[2].plot(C.iloc[:, 0], color="darkgreen", label="Convexity")
-    axs[2].plot(C.iloc[:, 1:], color="lightgreen", alpha=0.1)
-    axs[2].plot(
-        C.iloc[:, 1:].mean(axis=1),
-        color="darkgreen",
-        linestyle=":",
-        label="Projected Convexity",
-    )
-    axs[2].axhline(y=C_inf, color="darkgreen", linestyle="--", label="Reversion Level")
-    axs[2].xaxis.set_major_formatter(mdates.ConciseDateFormatter(mdates.AutoDateLocator()))
-    axs[2].set_title("Monte Carlo Simulation of Convexity")
-    axs[2].set_xlabel("")
-    axs[2].set_ylabel("Convexity")
-    axs[2].legend()
-
-    # Plot Convexity trailing 3x simulation period
-    C_trail = C.iloc[-len(paths_C) * 3 :]
-    axs[3].plot(C_trail.iloc[:, 0], color="darkgreen", label="Convexity")
-    axs[3].plot(C_trail.iloc[:, 1:], color="lightgreen", alpha=0.1)
-    axs[3].plot(
-        C_trail.iloc[:, 1:].mean(axis=1),
-        color="darkgreen",
-        linestyle=":",
-        label="Projected Convexity",
-    )
-    axs[3].axhline(y=C_inf, color="darkgreen", linestyle="--", label="Reversion Level")
-    axs[3].xaxis.set_major_formatter(mdates.ConciseDateFormatter(mdates.AutoDateLocator()))
-    axs[3].set_title("Monte Carlo Simulation of Convexity - Zoomed In")
-    axs[3].set_xlabel("")
-    axs[3].set_ylabel("Convexity")
-    axs[3].legend()
 
     fig.tight_layout()
-
     return fig
 
 
@@ -321,9 +252,7 @@ def run_model_vs_actual(
     cvx_actual_change = []
 
     # Get the last start date as a location in oas_data.index
-    final_simulation_dates = pd.date_range(
-        end=oas_data.index[-1], periods=simulation_steps, freq=simulation_freq
-    )
+    final_simulation_dates = pd.date_range(end=oas_data.index[-1], periods=simulation_steps, freq=simulation_freq)
     final_start = oas_data.index.get_loc(final_simulation_dates[0])
 
     # Loop through simulation windows
@@ -331,9 +260,7 @@ def run_model_vs_actual(
         if verbose:
             print(start.strftime(DATE_FORMAT))
 
-        simulation_dates = pd.date_range(
-            start=start, periods=simulation_steps, freq=simulation_freq
-        )
+        simulation_dates = pd.date_range(start=start, periods=simulation_steps, freq=simulation_freq)
         end = simulation_dates[-1]
 
         paths = model.monte_carlo_simulation(
@@ -363,55 +290,27 @@ def run_model_vs_actual(
         oas_actual_end.append((end, float(oas_data.loc[end])))
         cvx_actual_end.append((end, float(cvx_data.loc[end])))
 
-        oas_expected_change.append(
-            (end, float(oas_expected_path.iloc[-1]) - float(oas_data.loc[start]))
-        )
-        cvx_expected_change.append(
-            (end, float(cvx_expected_path.iloc[-1]) - float(cvx_data.loc[start]))
-        )
+        oas_expected_change.append((end, float(oas_expected_path.iloc[-1]) - float(oas_data.loc[start])))
+        cvx_expected_change.append((end, float(cvx_expected_path.iloc[-1]) - float(cvx_data.loc[start])))
 
-        oas_actual_change.append(
-            (end, float(oas_data.loc[end]) - float(oas_data.loc[start]))
-        )
-        cvx_actual_change.append(
-            (end, float(cvx_data.loc[end]) - float(cvx_data.loc[start]))
-        )
+        oas_actual_change.append((end, float(oas_data.loc[end]) - float(oas_data.loc[start])))
+        cvx_actual_change.append((end, float(cvx_data.loc[end]) - float(cvx_data.loc[start])))
 
     # Collate results into DataFrames
-    oas_expected = pd.DataFrame(
-        oas_expected, columns=["Date", "Expected End"]
-    ).set_index("Date")
-    cvx_expected = pd.DataFrame(
-        cvx_expected, columns=["Date", "Expected End"]
-    ).set_index("Date")
+    oas_expected = pd.DataFrame(oas_expected, columns=["Date", "Expected End"]).set_index("Date")
+    cvx_expected = pd.DataFrame(cvx_expected, columns=["Date", "Expected End"]).set_index("Date")
 
-    oas_actual_start = pd.DataFrame(
-        oas_actual_start, columns=["Date", "Actual Start"]
-    ).set_index("Date")
-    cvx_actual_start = pd.DataFrame(
-        cvx_actual_start, columns=["Date", "Actual Start"]
-    ).set_index("Date")
+    oas_actual_start = pd.DataFrame(oas_actual_start, columns=["Date", "Actual Start"]).set_index("Date")
+    cvx_actual_start = pd.DataFrame(cvx_actual_start, columns=["Date", "Actual Start"]).set_index("Date")
 
-    oas_actual_end = pd.DataFrame(
-        oas_actual_end, columns=["Date", "Actual End"]
-    ).set_index("Date")
-    cvx_actual_end = pd.DataFrame(
-        cvx_actual_end, columns=["Date", "Actual End"]
-    ).set_index("Date")
+    oas_actual_end = pd.DataFrame(oas_actual_end, columns=["Date", "Actual End"]).set_index("Date")
+    cvx_actual_end = pd.DataFrame(cvx_actual_end, columns=["Date", "Actual End"]).set_index("Date")
 
-    oas_expected_change = pd.DataFrame(
-        oas_expected_change, columns=["Date", "Expected Change"]
-    ).set_index("Date")
-    cvx_expected_change = pd.DataFrame(
-        cvx_expected_change, columns=["Date", "Expected Change"]
-    ).set_index("Date")
+    oas_expected_change = pd.DataFrame(oas_expected_change, columns=["Date", "Expected Change"]).set_index("Date")
+    cvx_expected_change = pd.DataFrame(cvx_expected_change, columns=["Date", "Expected Change"]).set_index("Date")
 
-    oas_actual_change = pd.DataFrame(
-        oas_actual_change, columns=["Date", "Actual Change"]
-    ).set_index("Date")
-    cvx_actual_change = pd.DataFrame(
-        cvx_actual_change, columns=["Date", "Actual Change"]
-    ).set_index("Date")
+    oas_actual_change = pd.DataFrame(oas_actual_change, columns=["Date", "Actual Change"]).set_index("Date")
+    cvx_actual_change = pd.DataFrame(cvx_actual_change, columns=["Date", "Actual Change"]).set_index("Date")
 
     oas = [
         # oas_actual_start,
@@ -444,11 +343,7 @@ def run_model_vs_actual(
     return output
 
 
-def plot_model_vs_actual(
-    oas: pd.DataFrame,
-    cvx: pd.DataFrame,
-    num_predictors,
-) -> plt.Figure:
+def plot_model_vs_actual(oas: pd.DataFrame, cvx: pd.DataFrame, num_predictors) -> plt.Figure:
     """Plot model expected vs actual change in OAS and Convexity.
 
     Args:
@@ -459,59 +354,28 @@ def plot_model_vs_actual(
         plt.Figure: Figure object with the plot.
     """
 
-    # Plot OAS and Convexity expected vs actual change in scatter plot with regression line
+    def plot_scatter(ax, data, title):
+        actual_change = data["Actual Change"]
+        expected_change = data["Expected Change"]
+        ax.scatter(actual_change, expected_change)
+        X_with_const = sm.add_constant(actual_change)
+        model = sm.OLS(expected_change, X_with_const).fit()
+        ax.plot(actual_change, model.predict(X_with_const), color="red")
+        ax.text(0.05, 0.95, f"y = {model.params[0]:.2f} + {model.params[1]:.2f}x", transform=ax.transAxes, va="top")
+        r2 = model.rsquared
+        n = len(actual_change)
+        adj_r2 = 1 - (1 - r2) * (n - 1) / (n - num_predictors - 1)
+        ax.text(0.05, 0.9, f"Adj R\u00b2 = {adj_r2:.2f}", transform=ax.transAxes, va="top")
+        ax.plot(actual_change, actual_change, color="lightgray")
+        ax.set_title(title)
+        ax.set_xlabel("Actual Change")
+        ax.set_ylabel("Expected Change")
+
     fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12, 6))
-
-    axs = axs.flatten()
-
-    oas_plot = oas.loc[:, ["Actual Change", "Expected Change"]].dropna()
-    axs[0].scatter(oas_plot["Actual Change"], oas_plot["Expected Change"])
-    # Add regression line
-    x = oas_plot["Actual Change"]
-    y = oas_plot["Expected Change"]
-    m, b = np.polyfit(x, y, 1)
-    axs[0].plot(x, m * x + b, color="red")
-    # Print regression line equation
-    axs[0].text(
-        0.05, 0.95, f"y = {b:.2f} + {m:.2f}x", transform=axs[0].transAxes, va="top"
-    )
-    # Add R^2 to plot
-    r2 = np.corrcoef(x, y)[0, 1] ** 2
-    n = len(x)
-    adj_r2 = 1 - (1 - r2) * (n - 1) / (n - num_predictors - 1)
-    axs[0].text(
-        0.05, 0.9, f"Adj R\u00b2 = {adj_r2:.2f}", transform=axs[0].transAxes, va="top"
-    )
-    # Add 45 degree line
-    axs[0].plot(x, x, color="black", linestyle="--")
-    axs[0].set_title("OAS Expected vs Actual Change")
-    axs[0].set_xlabel("Actual Change")
-    axs[0].set_ylabel("Expected Change")
-
-    cvx_plot = cvx.loc[:, ["Actual Change", "Expected Change"]].dropna()
-    axs[1].scatter(cvx_plot["Actual Change"], cvx_plot["Expected Change"])
-    # Add regression line
-    x = cvx_plot["Actual Change"]
-    y = cvx_plot["Expected Change"]
-    m, b = np.polyfit(x, y, 1)
-    axs[1].plot(x, m * x + b, color="red")
-    # Print regression line equation in the top left corner
-    axs[1].text(
-        0.05, 0.95, f"y = {b:.2f} + {m:.2f}x", transform=axs[1].transAxes, va="top"
-    )
-    # Add R^2 to plot
-    r2 = np.corrcoef(x, y)[0, 1] ** 2
-    n = len(x)
-    adj_r2 = 1 - (1 - r2) * (n - 1) / (n - num_predictors - 1)
-    axs[1].text(
-        0.05, 0.9, f"Adj R\u00b2 = {adj_r2:.2f}", transform=axs[1].transAxes, va="top"
-    )
-    # Add 45 degree line
-    axs[1].plot(x, x, color="black", linestyle="--")
-    axs[1].set_title("Convexity Expected vs Actual Change")
-    axs[1].set_xlabel("Actual Change")
-    axs[1].set_ylabel("Expected Change")
-
+    plot_scatter(axs[0], oas.loc[:, ["Actual Change", "Expected Change"]].dropna(), "OAS")
+    plot_scatter(axs[1], cvx.loc[:, ["Actual Change", "Expected Change"]].dropna(), "Convexity")
+    fig.suptitle("Model Expected vs Actual Change in OAS and Convexity")
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     return fig
 
 
@@ -531,19 +395,13 @@ def evaluate_frequency(
     if verbose:
         print("\nEvaluating model on different frequencies...")
 
-    frequencies = {
-        "daily": "B", 
-        "weekly": "W-FRI", 
-        "monthly": "BME"
-        }
+    frequencies = {"daily": "B", "weekly": "W-FRI", "monthly": "BME"}
     output = {}
 
     for freq_name, freq in frequencies.items():
         if verbose:
             print(f"\nFrequency: {freq_name}")
-        resampled_dates = pd.date_range(
-            start=simulation_dates[0], end=simulation_dates[-1], freq=freq
-        )
+        resampled_dates = pd.date_range(start=simulation_dates[0], end=simulation_dates[-1], freq=freq)
         resampled_steps = len(resampled_dates)
         _, model = run_value_model(
             oas_data,
@@ -642,9 +500,7 @@ def evaluate_complexity(
     }
     output = {}
 
-    resampled_dates = pd.date_range(
-        start=simulation_dates[0], end=simulation_dates[-1], freq=simulation_freq
-    )
+    resampled_dates = pd.date_range(start=simulation_dates[0], end=simulation_dates[-1], freq=simulation_freq)
     resampled_steps = len(resampled_dates)
 
     for complexity_name, complexity_params in complexities.items():
@@ -706,9 +562,7 @@ def evaluate_estimation(
     simulation_freq = "W-FRI"
     output = {}
 
-    resampled_dates = pd.date_range(
-        start=simulation_dates[0], end=simulation_dates[-1], freq=simulation_freq
-    )
+    resampled_dates = pd.date_range(start=simulation_dates[0], end=simulation_dates[-1], freq=simulation_freq)
     resampled_steps = len(resampled_dates)
 
     if verbose:
@@ -757,8 +611,8 @@ def evaluate_estimation(
         enable_rate_vol=complexity_params["enable_rate_vol"],
         enable_local_vol=complexity_params["enable_local_vol"],
         enable_mle=True,
-        estimation_freq="B",
-        simulation_freq="B",
+        estimation_freq=estimation_freq,
+        simulation_freq=simulation_freq,
         simulation_steps=resampled_steps,
         num_paths=num_paths,
         seed=seed,
@@ -784,40 +638,47 @@ def evaluate_estimation(
     return output
 
 
-def evaluation_criteria(
-    simulated_path: pd.Series, actual_data: pd.Series, model: JointReversionModel
-) -> dict:
+def evaluation_criteria(expected: pd.Series, actual: pd.Series, model: JointReversionModel) -> dict:
     """Evaluate model performance using different criteria.
 
+    MSE: Mean Squared Error
+    RMSE: Root Mean Squared Error
+    MAE: Mean Absolute Error
+    R2: R-squared
+    Adj R2: Adjusted R-squared
+
     Args:
-        simulated_path (pd.Series): Simulated path.
-        actual_data (pd.Series): Actual data.
+        expected (pd.Series): Expected data.
+        actual (pd.Series): Actual data.
         model (JointReversionModel): Model object.
 
     Returns:
         dict: Dictionary with evaluation criteria.
-
-    R-squared (R2) is a statistical measure that represents the proportion of the variance for a dependent variable that's explained by an independent variable or variables in a regression model. The R-squared value is a number between 0 and 1, where 0 indicates that the model does not fit the data and 1 indicates that the model fits perfectly.
-    Adjusted R-squared (Adj R2) is the coefficient of determination adjusted for the number of predictors in the model. It is a statistical measure that represents the proportion of the variance for a dependent variable that's explained by an independent variable or variables in a regression model, adjusted for the number of predictors in the model.
-    Mean Squared Error (MSE) is the average of the squared differences between the predicted and actual values in a regression model. It is a measure of the quality of an estimator—it is always non-negative, and values closer to zero are better.
-    Root Mean Squared Error (RMSE) is the square root of the average of the squared differences between the predicted and actual values in a regression model. It is a measure of the quality of an estimator—it is always non-negative, and values closer to zero are better.
-    Mean Absolute Error (MAE) is the average of the absolute differences between the predicted and actual values in a regression model. It is a measure of the quality of an estimator—it is always non-negative, and values closer to zero are better.
-
-    See: https://scikit-learn.org/stable/modules/model_evaluation.html#regression-metrics
     """
-    actual_path = actual_data.reindex(simulated_path.index)
+    actual = actual.reindex(expected.index)
     try:
-        r2 = r2_score(actual_path, simulated_path)
-        adj_r2 = 1 - (1 - r2) * (len(actual_path) - 1) / (
-            len(actual_path) - model.get_num_predictors() - 1
-        )
-        mse = mean_squared_error(actual_path, simulated_path)
+        X_with_const = sm.add_constant(actual)
+        ols_model = sm.OLS(expected, X_with_const).fit()
+        mse = np.mean((expected - actual) ** 2)
         rmse = np.sqrt(mse)
-        mae = mean_absolute_error(actual_path, simulated_path)
+        mae = np.mean(np.abs(expected - actual))
+        r2 = ols_model.rsquared
+        # Adjusted R-squared using the number of predictors from the underlying model
+        n = len(actual)
+        adj_r2 = 1 - (1 - r2) * (n - 1) / (n - model.get_num_predictors() - 1)
     except ValueError:
         mse, rmse, mae, r2, adj_r2 = np.nan, np.nan, np.nan, np.nan, np.nan
 
     return {"MSE": mse, "RMSE": rmse, "MAE": mae, "R2": r2, "Adj R2": adj_r2}
+
+
+def summarize_ols(model: JointReversionModel) -> dict:
+    """Summarize OLS model results."""
+    ols = model.ols.copy()
+    ols.pop("model_OAS", None)
+    ols.pop("model_C", None)
+    ols.pop("model_sigma_O", None)
+    return ols
 
 
 def evaluate_value_model(
@@ -850,9 +711,7 @@ def evaluate_value_model(
     nu_r_data = nu_r_data.asfreq("D").ffill().asfreq("B")
 
     # Generate reference range of dates for simulation
-    simulation_dates = pd.date_range(
-        end=oas_data.index[-1], periods=simulation_days, freq="B"
-    )
+    simulation_dates = pd.date_range(end=oas_data.index[-1], periods=simulation_days, freq="B")
 
     frequency_results = evaluate_frequency(
         oas_data,
@@ -895,58 +754,46 @@ def evaluate_value_model(
     # Evaluate criteria for each result set
     cols = ["Actual Change", "Expected Change"]
 
-    frequency_oas = {
-        k: (v["OAS"].loc[:, cols].dropna(), v["Model"])
-        for k, v in frequency_results.items()
-    }
-    complexity_oas = {
-        k: (v["OAS"].loc[:, cols].dropna(), v["Model"])
-        for k, v in complexity_results.items()
-    }
-    estimation_oas = {
-        k: (v["OAS"].loc[:, cols].dropna(), v["Model"])
-        for k, v in estimation_results.items()
-    }
+    frequency_oas = {k: (v["OAS"].loc[:, cols].dropna(), v["Model"]) for k, v in frequency_results.items()}
+    complexity_oas = {k: (v["OAS"].loc[:, cols].dropna(), v["Model"]) for k, v in complexity_results.items()}
+    estimation_oas = {k: (v["OAS"].loc[:, cols].dropna(), v["Model"]) for k, v in estimation_results.items()}
     oas_evaluation = {
         "frequency": {
-            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
-            for k, (v, m) in frequency_oas.items()
+            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m) for k, (v, m) in frequency_oas.items()
         },
         "complexity": {
-            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
-            for k, (v, m) in complexity_oas.items()
+            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m) for k, (v, m) in complexity_oas.items()
         },
         "estimation": {
-            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
-            for k, (v, m) in estimation_oas.items()
+            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m) for k, (v, m) in estimation_oas.items()
         },
     }
 
-    frequency_cvx = {
-        k: (v["Convexity"].loc[:, cols].dropna(), v["Model"])
-        for k, v in frequency_results.items()
-    }
-    complexity_cvx = {
-        k: (v["Convexity"].loc[:, cols].dropna(), v["Model"])
-        for k, v in complexity_results.items()
-    }
-    estimation_cvx = {
-        k: (v["Convexity"].loc[:, cols].dropna(), v["Model"])
-        for k, v in estimation_results.items()
-    }
+    frequency_cvx = {k: (v["Convexity"].loc[:, cols].dropna(), v["Model"]) for k, v in frequency_results.items()}
+    complexity_cvx = {k: (v["Convexity"].loc[:, cols].dropna(), v["Model"]) for k, v in complexity_results.items()}
+    estimation_cvx = {k: (v["Convexity"].loc[:, cols].dropna(), v["Model"]) for k, v in estimation_results.items()}
     cvx_evaluation = {
         "frequency": {
-            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
-            for k, (v, m) in frequency_cvx.items()
+            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m) for k, (v, m) in frequency_cvx.items()
         },
         "complexity": {
-            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
-            for k, (v, m) in complexity_cvx.items()
+            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m) for k, (v, m) in complexity_cvx.items()
         },
         "estimation": {
-            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m)
-            for k, (v, m) in estimation_cvx.items()
+            k: evaluation_criteria(v["Expected Change"], v["Actual Change"], m) for k, (v, m) in estimation_cvx.items()
         },
+    }
+
+    oas_ols_summary = {
+        "frequency": {k: summarize_ols(v["Model"]) for k, v in frequency_results.items()},
+        "complexity": {k: summarize_ols(v["Model"]) for k, v in complexity_results.items()},
+        "estimation": {k: summarize_ols(v["Model"]) for k, v in estimation_results.items()},
+    }
+
+    cvx_ols_summary = {
+        "frequency": {k: summarize_ols(v["Model"]) for k, v in frequency_results.items()},
+        "complexity": {k: summarize_ols(v["Model"]) for k, v in complexity_results.items()},
+        "estimation": {k: summarize_ols(v["Model"]) for k, v in estimation_results.items()},
     }
 
     def flatten_evaluation(evaluation_dict):
@@ -959,12 +806,11 @@ def evaluate_value_model(
                 flattened_data.append(flattened_entry)
         return pd.DataFrame(flattened_data)
 
-    oas_evaluation_df = flatten_evaluation(oas_evaluation)
-    cvx_evaluation_df = flatten_evaluation(cvx_evaluation)
-
     return {
-        "OAS Eval": oas_evaluation_df,
-        "Convexity Eval": cvx_evaluation_df,
+        "OAS Eval": flatten_evaluation(oas_evaluation),
+        "Convexity Eval": flatten_evaluation(cvx_evaluation),
+        "OAS OLS": flatten_evaluation(oas_ols_summary),
+        "Convexity OLS": flatten_evaluation(cvx_ols_summary),
         "Frequency Results": frequency_results,
         "Complexity Results": complexity_results,
         "Estimation Results": estimation_results,
@@ -986,9 +832,7 @@ if __name__ == "__main__":
     train_start_date = "2013-01-01"
     train_end_date = (pd.Timestamp.today() - pd.offsets.BDay(1)).strftime("%Y-%m-%d")
     historical_freq = "B"
-    historical_dates = pd.date_range(
-        start=train_start_date, end=train_end_date, freq=historical_freq
-    )
+    historical_dates = pd.date_range(start=train_start_date, end=train_end_date, freq=historical_freq)
 
     # Generate training data
     zv_hist, oas_hist, sigma_r_hist, nu_r_hist = generate_historical_data(
@@ -1015,7 +859,7 @@ if __name__ == "__main__":
         sigma_r_data,
         nu_r_data,
         seed=seed,
-        step_interval=6 * 21,
+        step_interval=252,
         verbose=True,
     )
 
