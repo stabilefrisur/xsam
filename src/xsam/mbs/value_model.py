@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 from scipy.optimize import minimize
 from statsmodels.tsa.stattools import adfuller
 
@@ -60,6 +61,10 @@ class JointReversionModel:
             sigma_C (float): Volatility of Convexity.
             enable_spread_cvx (bool, optional): Enable convexity interaction. Defaults to True.
             enable_rate_vol (bool, optional): Enable interest rate interaction. Defaults to True.
+            enable_local_vol (bool, optional): Enable local volatility. Defaults to True.
+            ols_OAS (sm.regression.linear_model.RegressionResults, optional): OLS regression results for OAS. Defaults to None.
+            ols_C (sm.regression.linear_model.RegressionResults, optional): OLS regression results for Convexity. Defaults to None.
+            ols_sigma_O (sm.regression.linear_model.RegressionResults, optional): OLS regression results for volatility of OAS. Defaults to None.
         """
         self.dt = dt
         self.kappa = kappa
@@ -190,46 +195,93 @@ class JointReversionModel:
         y_C = C[steps:] - C[:-steps]
 
         # OLS regression for OAS
-        ols_OAS = np.linalg.lstsq(X_OAS, y_OAS, rcond=None)[0]
-        kappa = ols_OAS[0]
+        X_OAS = sm.add_constant(X_OAS)
+        ols_OAS = sm.OLS(y_OAS, X_OAS).fit()
+        kappa = ols_OAS.params[0]
+        kappa_p = ols_OAS.pvalues[0]
         if not self.enable_spread_cvx and not self.enable_rate_vol:
             gamma = [0.0, 0.0, 0.0]
+            gamma_p = [None, None, None]
         elif self.enable_spread_cvx and not self.enable_rate_vol:
-            gamma = [ols_OAS[1]] + [0.0, 0.0]
+            gamma = [ols_OAS.params[1], 0.0, 0.0]
+            gamma_p = [ols_OAS.pvalues[1], None, None]
         elif not self.enable_spread_cvx and self.enable_rate_vol:
-            gamma = [0.0] + list(ols_OAS[1:])
+            gamma = [0.0] + list(ols_OAS.params[1:])
+            gamma_p = [None] + list(ols_OAS.pvalues[1:])
         else:
-            gamma = list(ols_OAS[1:])
+            gamma = list(ols_OAS.params[1:])
+            gamma_p = list(ols_OAS.pvalues[1:])
 
         # OLS regression for Convexity
-        ols_C = np.linalg.lstsq(X_C, y_C, rcond=None)[0]
-        lambda_ = ols_C[0]
+        X_C = sm.add_constant(X_C)
+        ols_C = sm.OLS(y_C, X_C).fit()
+        lambda_ = ols_C.params[0]
+        lambda_p = ols_C.pvalues[0]
         if not self.enable_spread_cvx and not self.enable_rate_vol:
             beta = [0.0, 0.0, 0.0]
+            beta_p = [None, None, None]
         elif self.enable_spread_cvx and not self.enable_rate_vol:
-            beta = [ols_C[1]] + [0.0, 0.0]
+            beta = [ols_C.params[1], 0.0, 0.0]
+            beta_p = [ols_C.pvalues[1], None, None]
         elif not self.enable_spread_cvx and self.enable_rate_vol:
-            beta = [0.0] + list(ols_C[1:])
+            beta = [0.0] + list(ols_C.params[1:])
+            beta_p = [None] + list(ols_C.pvalues[1:])
         else:
-            beta = list(ols_C[1:])
+            beta = list(ols_C.params[1:])
+            beta_p = list(ols_C.pvalues[1:])
 
         # Residuals for variance calibration
-        residuals_OAS = y_OAS - X_OAS @ ols_OAS
-        residuals_C = y_C - X_C @ ols_C
+        residuals_OAS = y_OAS - X_OAS @ ols_OAS.params
+        residuals_C = y_C - X_C @ ols_C.params
 
         # Residual Variance Calibration
-        def variance_function(params):
-            sigma_O_0, delta = params
-            return np.sum((residuals_OAS**2 - (sigma_O_0**2 + delta * C[:-steps] ** 2)) ** 2)
-
+        ols_sigma_O = None
         if self.enable_local_vol:
-            initial_guess = self.sigma_O_0, self.delta
-            sigma_O_0, delta = minimize(variance_function, initial_guess).x
+            ols_sigma_O = sm.OLS(residuals_OAS**2, sm.add_constant(C[:-steps]**2)).fit()
+            sigma_O_0 = np.sqrt(ols_sigma_O.params[0])
+            sigma_O_0_p = ols_sigma_O.pvalues[0]
+            delta = ols_sigma_O.params[1]
+            delta_p = ols_sigma_O.pvalues[1]
         else:
             sigma_O_0 = np.std(residuals_OAS)
+            sigma_O_0_p = None
             delta = 0.0
+            delta_p = None
 
         sigma_C = np.std(residuals_C)
+
+        ols = {
+            "kappa": kappa,
+            "gamma_0": gamma[0],
+            "gamma_1": gamma[1],
+            "gamma_2": gamma[2],
+            "kappa_p": kappa_p,
+            "gamma_0_p": gamma_p[0],
+            "gamma_1_p": gamma_p[1],
+            "gamma_2_p": gamma_p[2],
+            "r2_OAS": ols_OAS.rsquared,
+            "r2_adj_OAS": ols_OAS.rsquared_adj,
+            "model_OAS": ols_OAS,
+            "lambda": lambda_,
+            "beta_0": beta[0],
+            "beta_1": beta[1],
+            "beta_2": beta[2],
+            "lambda_p": lambda_p,
+            "beta_0_p": beta_p[0],
+            "beta_1_p": beta_p[1],
+            "beta_2_p": beta_p[2],
+            "r2_C": ols_C.rsquared,
+            "r2_adj_C": ols_C.rsquared_adj,
+            "model_C": ols_C,
+            "sigma_O_0": sigma_O_0,
+            "delta": delta,
+            "sigma_O_0_p": sigma_O_0_p,
+            "delta_p": delta_p,
+            "r2_sigma_O": ols_sigma_O.rsquared if ols_sigma_O is not None else None,
+            "r2_adj_sigma_O": ols_sigma_O.rsquared_adj if ols_sigma_O is not None else None,
+            "model_sigma_O": ols_sigma_O,
+            "sigma_C": sigma_C,
+        }
 
         if verbose:
             print('\nEstimated Parameters (OLS):')
@@ -248,6 +300,7 @@ class JointReversionModel:
         self.sigma_O_0 = sigma_O_0
         self.delta = delta
         self.sigma_C = sigma_C
+        self.ols = ols
 
     def estimate_parameters_mle(
         self,
