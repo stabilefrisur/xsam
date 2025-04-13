@@ -1,6 +1,6 @@
 [project]
 name = "xsam"
-version = "0.1.7"
+version = "0.1.8"
 requires-python = ">=3.10"
 dependencies = [
     "matplotlib>=3.10.0",
