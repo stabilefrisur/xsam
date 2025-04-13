@@ -1,8 +1,8 @@
 # Project specific
+docs/
 output/
 *.log
 todo.md
-docs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

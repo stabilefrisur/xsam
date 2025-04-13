@@ -116,6 +116,17 @@ git branch -M master
 git push -u origin master
 ```
 
+## Stop tracking private files
+Remove private files from staging
+```bash
+git rm -r --cached private_file
+```
+
+Add private folder and file names to .gitignore, such as 
+docs/
+*.log
+todo.md
+
 ## Create a Git branch and merge into master
 
 Create a new branch
@@ -198,6 +209,12 @@ pytest
 ```
 
 ## Build and publish the package
+Exclude private folders from PyPi package
+```bash
+echo '' >> pyproject.toml
+echo '[tool.hatch.build]' >> pyproject.toml
+echo 'exclude = ["docs", "output"]' >> pyproject.toml
+```
 
 Update the project environment
 ```bash
