@@ -28,6 +28,7 @@ class Portfolio:
     break_even_pnl: float | None = field(default=None)
     safe_pnl: float | None = field(default=None)
     worst_pnl: float | None = field(default=None)
+    # Risk capacity
     capacity: float | None = field(default=None)
 
     def __attrs_post_init__(self):
@@ -52,6 +53,8 @@ class Portfolio:
         self.break_even_pnl = sum(trade.break_even_pnl for trade in self.trades)
         self.safe_pnl = sum(trade.safe_pnl for trade in self.trades)
         self.worst_pnl = sum(trade.worst_pnl for trade in self.trades)
+        # Calculate capacity
+        self.capacity = self.calc_capacity()
 
     def calc_weights(self) -> list[float]:
         """Calculate the weights of the trades in the portfolio."""
@@ -64,3 +67,5 @@ class Portfolio:
     def calc_portfolio_metric(trades: list[Trade], weights: list[float], metric_name: str) -> float:
         return sum(getattr(trade.asset, metric_name) * weight for trade, weight in zip(trades, weights))
 
+    def calc_capacity(self) -> float:
+        pass
