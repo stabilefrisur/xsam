@@ -1,3 +1,4 @@
+import os
 import pickle
 import re
 from pathlib import Path
@@ -8,7 +9,18 @@ from xsam.logger import ActionLogger, FileLogger
 
 # General logger for actions
 action_logger = ActionLogger()
-file_logger = FileLogger("file_log.log")
+
+# Allow users to define a custom log file path via an environment variable
+default_log_path = Path.home() / "file_log.log"
+custom_log_path = Path(os.getenv("XSAM_LOG_PATH", default_log_path))
+file_logger = FileLogger(custom_log_path)
+
+
+def set_log_path(new_path: Path | str):
+    """Set a custom path for the log file."""
+    global file_logger
+    file_logger = FileLogger(Path(new_path))
+    action_logger.info(f"Log file path updated to {new_path}")
 
 
 def load(
@@ -24,7 +36,6 @@ def load(
         file_format (str): File format. Supported formats are 'csv', 'xlsx', and 'pickle'.
         full_file_path (Path | str): Full file path including the file name and extension.
         log_id (str): Unique file ID from the log file.
-        log_path (Path | str): Path to the log file. Default is 'file_log.log'.
 
     Returns:
         pd.DataFrame | pd.Series | dict | None: Loaded object.
