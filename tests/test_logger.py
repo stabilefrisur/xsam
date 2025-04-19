@@ -1,6 +1,6 @@
 import pytest
 
-from xsam.logger import FileLogger
+from xsam.logger import set_log_path, FileLogger
 
 
 @pytest.fixture
@@ -66,6 +66,31 @@ def test_clean_logs(logger):
     logger.clean_logs()
     logs = logger.get_logs()
     assert len(logs) == 0
+
+
+def test_set_log_path(tmp_path):
+    # Arrange: Create a temporary log path
+    new_log_path = tmp_path / "custom_log.log"
+
+    # Act: Call set_log_path with the new path
+    set_log_path(new_log_path)
+
+    # Assert: Verify that the FileLogger is using the new path
+    file_logger = FileLogger(new_log_path)
+    assert file_logger.log_file == new_log_path.with_suffix(".log")
+
+    # Log a new file path
+    test_file_path = tmp_path / "test_file.txt"
+    test_file_path.touch()  # Create the test file
+    file_logger.log_file_path(str(test_file_path))
+
+    # Assert: Verify that the log file is created
+    assert new_log_path.with_suffix(".log").exists()
+
+    # Assert: Verify that the new file path is logged
+    with new_log_path.with_suffix(".log").open("r") as log_file:
+        logs = log_file.readlines()
+    assert any(str(test_file_path) in log for log in logs)
 
 
 if __name__ == "__main__":

@@ -48,18 +48,18 @@ def save(
     full_path = path / f"{file_name}.{extension}"
 
     file_logger.log_file_path(full_path)
-    action_logger.info(f"Saving {type(obj).__name__} as {file_format} to {full_path}")
+    # action_logger.info(f"Saving {type(obj).__name__} as {file_format} to {full_path}")
 
     # Map file formats to their respective save functions
     save_functions = {
         "csv": save_csv,
         "xlsx": save_xlsx,
-        "pickle": save_pickle,
+        "p": save_pickle,
         "png": save_png,
         "svg": save_svg,
     }
 
-    save_function = save_functions.get(file_format)
+    save_function = save_functions.get(extension)
     if save_function is None:
         raise ValueError(f"Unsupported file format: {file_format}")
 
@@ -189,3 +189,10 @@ if __name__ == "__main__":
     save(df, "data", "csv", add_timestamp=False)
     save(df, "data", "xlsx", add_timestamp=False)
     save(df, "data", "pickle", add_timestamp=False)
+
+    print(file_logger.log_file)
+    from xsam.logger import set_log_path
+    set_log_path(file_logger.log_file.parent / "custom_log.log")
+    save(df, "data", "csv", add_timestamp=False)
+    save(df, "data", "xlsx", add_timestamp=False)
+

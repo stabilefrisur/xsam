@@ -16,13 +16,6 @@ custom_log_path = Path(os.getenv("XSAM_LOG_PATH", default_log_path))
 file_logger = FileLogger(custom_log_path)
 
 
-def set_log_path(new_path: Path | str):
-    """Set a custom path for the log file."""
-    global file_logger
-    file_logger = FileLogger(Path(new_path))
-    action_logger.info(f"Log file path updated to {new_path}")
-
-
 def load(
     file_name: str = None,
     file_format: str = None,

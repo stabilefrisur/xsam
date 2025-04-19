@@ -41,6 +41,7 @@ class ActionLogger:
 
 class FileLogger:
     """A class to log file paths to a file and retrieve them by log ID or file name."""
+
     _instances = {}
 
     def __new__(cls, log_file: str, *args, **kwargs):
@@ -165,3 +166,12 @@ class FileLogger:
 
         with self.log_file.open("w") as f:
             f.writelines(valid_lines)
+
+
+def set_log_path(new_path: Path | str):
+    """Set a custom path for the log file."""
+    global file_logger
+    file_logger = FileLogger(Path(new_path))
+    # General logger for actions
+    action_logger = ActionLogger()
+    action_logger.info(f"Log file path updated to {new_path}")
