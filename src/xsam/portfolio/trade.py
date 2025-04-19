@@ -1,6 +1,7 @@
 from attrs import define, field
 from .asset import Asset
 
+
 @define
 class Trade:
     asset: Asset
@@ -29,16 +30,15 @@ class Trade:
             float: Profit and loss in dollars.
         """
         return quantity * ret / 1e4
-    
+
     def calc_reversion_pnl(self) -> float:
         return self.calc_pnl(self.quantity, self.asset.reversion_ret)
-    
+
     def calc_break_even_pnl(self) -> float:
         return self.calc_pnl(self.quantity, self.asset.break_even_ret)
-    
+
     def calc_safe_pnl(self) -> float:
         return self.calc_pnl(self.quantity, self.asset.safe_ret)
-    
+
     def calc_worst_pnl(self) -> float:
         return self.calc_pnl(self.quantity, self.asset.worst_ret)
-

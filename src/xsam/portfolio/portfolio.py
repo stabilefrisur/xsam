@@ -1,4 +1,6 @@
 from attrs import define, field
+
+from .risk_budget import ShockLossCapacity
 from .trade import Trade
 
 
@@ -29,7 +31,11 @@ class Portfolio:
     safe_pnl: float | None = field(default=None)
     worst_pnl: float | None = field(default=None)
     # Risk capacity
-    capacity: float | None = field(default=None)
+    shock_loss_budget: float | None = field(default=None, validator=field(gt=0))
+    loss_budget: float | None = field(default=None, validator=field(gt=0))
+    drawdown: float | None = field(default=None, validator=field(gt=0))
+    value_scaler: float | None = field(default=None, validator=[field(gt=0), field(lt=1)])
+    shock_loss_capacity: float | None = field(default=None, validator=field(gt=0))
 
     def __attrs_post_init__(self):
         self.weights = self.calc_weights()
@@ -53,8 +59,8 @@ class Portfolio:
         self.break_even_pnl = sum(trade.break_even_pnl for trade in self.trades)
         self.safe_pnl = sum(trade.safe_pnl for trade in self.trades)
         self.worst_pnl = sum(trade.worst_pnl for trade in self.trades)
-        # Calculate capacity
-        self.capacity = self.calc_capacity()
+        # Calculate Shock Loss capacity
+        self.shock_loss_capacity = self.calc_shock_loss_capacity()
 
     def calc_weights(self) -> list[float]:
         """Calculate the weights of the trades in the portfolio."""
@@ -67,5 +73,11 @@ class Portfolio:
     def calc_portfolio_metric(trades: list[Trade], weights: list[float], metric_name: str) -> float:
         return sum(getattr(trade.asset, metric_name) * weight for trade, weight in zip(trades, weights))
 
-    def calc_capacity(self) -> float:
-        pass
+    def calc_shock_loss_capacity(self) -> float:
+        return ShockLossCapacity(
+            loss_budget=self.loss_budget,
+            drawdown=self.drawdown,
+            shock_loss=self.shock_loss,
+            value=self.value,
+            value_scaler=self.value / self.price,
+        ).shock_loss_capacity
