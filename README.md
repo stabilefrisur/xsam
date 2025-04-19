@@ -20,7 +20,17 @@ pytest
 
 ### Customizing the Log File Location
 
-By default, the `xsam` package writes logs to `file_log.log` in the user's home directory. To specify a custom location for the log file, set the `XSAM_LOG_PATH` environment variable:
+By default, the `xsam` package writes logs to `file_log.log` in the user's home directory. To specify a custom location for the log file, you can either set the `XSAM_LOG_PATH` environment variable or configure it programmatically using the `set_log_path` function.
+
+#### Example (Programmatically):
+```python
+from pathlib import Path
+from xsam.logger import set_log_path
+
+# Set a custom log file path
+custom_log_path = Path("C:/path/to/custom/file_log.log")
+set_log_path(custom_log_path)
+```
 
 #### Example (Linux/Mac):
 ```bash
@@ -36,7 +46,6 @@ $env:XSAM_LOG_PATH = "C:\path\to\custom\file_log.log"
 ```bash
 set XSAM_LOG_PATH=C:\path\to\custom\file_log.log
 ```
-
 
 ### Entry Point
 Run the main program like so
