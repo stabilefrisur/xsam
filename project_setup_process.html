@@ -87,6 +87,14 @@ git commit -m <span class="hljs-string">&quot;initial commit&quot;</span>
 <pre><code class="code-line language-bash" dir="auto">git branch -M master
 git push -u origin master
 </code></pre>
+<h2 dir="auto" id="stop-tracking-private-files">Stop tracking private files</h2>
+<p dir="auto">Remove private files from staging</p>
+<pre><code class="code-line language-bash" dir="auto">git <span class="hljs-built_in">rm</span> -r --cached private_file
+</code></pre>
+<p dir="auto">Add private folder and file names to .gitignore, such as
+docs/
+*.log
+todo.md</p>
 <h2 dir="auto" id="create-a-git-branch-and-merge-into-master">Create a Git branch and merge into master</h2>
 <p dir="auto">Create a new branch</p>
 <pre><code class="code-line language-bash" dir="auto">git checkout -b new_feature
@@ -144,6 +152,11 @@ git push origin --delete new_feature
 <pre><code class="code-line language-bash" dir="auto">pytest
 </code></pre>
 <h2 dir="auto" id="build-and-publish-the-package">Build and publish the package</h2>
+<p dir="auto">Exclude private folders from PyPi package</p>
+<pre><code class="code-line language-bash" dir="auto"><span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;[tool.hatch.build]&#x27;</span> &gt;&gt; pyproject.toml
+<span class="hljs-built_in">echo</span> <span class="hljs-string">&#x27;exclude = [&quot;docs&quot;, &quot;output&quot;]&#x27;</span> &gt;&gt; pyproject.toml
+</code></pre>
 <p dir="auto">Update the project environment</p>
 <pre><code class="code-line language-bash" dir="auto">uv <span class="hljs-built_in">sync</span>
 </code></pre>
