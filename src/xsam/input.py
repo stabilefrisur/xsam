@@ -11,7 +11,7 @@ from xsam.logger import ActionLogger, FileLogger
 action_logger = ActionLogger()
 
 # Allow users to define a custom log file path via an environment variable
-default_log_path = Path.home() / "file_log.log"
+default_log_path = Path.home() / ".logs" / "file_log.log"
 custom_log_path = Path(os.getenv("XSAM_LOG_PATH", default_log_path))
 file_logger = FileLogger(custom_log_path)
 

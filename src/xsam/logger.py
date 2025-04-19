@@ -51,6 +51,7 @@ class FileLogger:
     def __init__(self, log_file: str):
         if not hasattr(self, "initialized"):
             self.log_file = Path(log_file).with_suffix(".log")
+            self.log_file.parent.mkdir(parents=True, exist_ok=True)
             self.logger = logging.getLogger(f"FileLogger_{log_file}")
             self.logger.setLevel(logging.INFO)
             handler = logging.FileHandler(self.log_file)
