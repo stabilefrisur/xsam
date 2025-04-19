@@ -1,5 +1,4 @@
 import functools
-import os
 import pickle
 import tempfile
 from datetime import datetime
@@ -9,16 +8,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from xsam.constants import TIMESTAMP_FORMAT
-from xsam.logger import ActionLogger, FileLogger
+from xsam.logger import ActionLogger, get_file_logger
 from xsam.utilities import flatten_dict
 
 # General logger for actions
 action_logger = ActionLogger()
-
-# Allow users to define a custom log file path via an environment variable
-default_log_path = Path.home() / ".logs" / "file_log.log"
-custom_log_path = Path(os.getenv("XSAM_LOG_PATH", default_log_path))
-file_logger = FileLogger(custom_log_path)
 
 
 def save(
@@ -46,8 +40,8 @@ def save(
     timestamp = datetime.now().strftime(TIMESTAMP_FORMAT)
     file_name = f"{timestamp}_{file_name}" if add_timestamp else file_name
     full_path = path / f"{file_name}.{extension}"
-
-    file_logger.log_file_path(full_path)
+    file_logger = get_file_logger()
+    file_logger.log_file_path(str(full_path))
     # action_logger.info(f"Saving {type(obj).__name__} as {file_format} to {full_path}")
 
     # Map file formats to their respective save functions
@@ -179,6 +173,7 @@ def save_decorator(
 
 if __name__ == "__main__":
     import pandas as pd
+    from xsam.logger import get_file_logger, set_log_path
 
     data = {
         "A": [1, 2, 3],
@@ -186,13 +181,11 @@ if __name__ == "__main__":
     }
     df = pd.DataFrame(data)
 
-    save(df, "data", "csv", add_timestamp=False)
     save(df, "data", "xlsx", add_timestamp=False)
     save(df, "data", "pickle", add_timestamp=False)
 
+    file_logger = get_file_logger()
     print(file_logger.log_file)
-    from xsam.logger import set_log_path
+
     set_log_path(file_logger.log_file.parent / "custom_log.log")
     save(df, "data", "csv", add_timestamp=False)
-    save(df, "data", "xlsx", add_timestamp=False)
-

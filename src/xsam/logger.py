@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import shutil
 import uuid
@@ -166,6 +167,20 @@ class FileLogger:
 
         with self.log_file.open("w") as f:
             f.writelines(valid_lines)
+
+
+file_logger = None
+
+
+def get_file_logger():
+    """Retrieve the current FileLogger instance."""
+    # Singleton pattern to ensure only one instance of FileLogger exists
+    global file_logger
+    if file_logger is None:
+        default_log_path = Path.home() / ".logs" / "file_log.log"
+        custom_log_path = Path(os.getenv("XSAM_LOG_PATH", default_log_path))
+        file_logger = FileLogger(custom_log_path)
+    return file_logger
 
 
 def set_log_path(new_path: Path | str):
