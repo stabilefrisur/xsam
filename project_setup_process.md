@@ -68,7 +68,7 @@ uv remove matplotlib
 Add optional developer dependencies 
 ```bash
 uv add --dev pytest
-```bash
+```
 
 Check that pyproject.toml has been updated
 ```bash
@@ -123,9 +123,11 @@ git rm -r --cached private_file
 ```
 
 Add private folder and file names to .gitignore, such as 
+```txt
 docs/
 *.log
 todo.md
+```
 
 ## Create a Git branch and merge into master
 
