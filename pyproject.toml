@@ -5,6 +5,7 @@ requires-python = ">=3.10"
 dependencies = [
     "attrs>=25.3.0",
     "dash>=3.0.3",
+    "dash-bootstrap-components>=2.0.1",
     "matplotlib>=3.10.0",
     "pandas[computation,excel,output-formatting,performance,plot]>=2.2.3",
     "plotly>=6.0.1",

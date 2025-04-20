@@ -249,6 +249,18 @@ wheels = [
 ]
 
 [[package]]
+name = "dash-bootstrap-components"
+version = "2.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dash" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6f/8b/dc02d257265ac32f3dbda4e7c1081c2dd721e9091de19bff05557b2dd287/dash_bootstrap_components-2.0.1.tar.gz", hash = "sha256:3cc6586f37cb3fcc04bc72d3801c07b792040066a2cc78d2330885529265ec28", size = 114886 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2e/3f/53d53cb3490d623b4ca56e152db0a495951fdc98ed044ca12138cfb527f9/dash_bootstrap_components-2.0.1-py3-none-any.whl", hash = "sha256:e598fc47f8fb1622eec5b06ccbfec3be9a0ed8ee4405c35bcf3c2c54b74f80c5", size = 202452 },
+]
+
+[[package]]
 name = "defusedxml"
 version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1412,6 +1424,7 @@ source = { editable = "." }
 dependencies = [
     { name = "attrs" },
     { name = "dash" },
+    { name = "dash-bootstrap-components" },
     { name = "matplotlib" },
     { name = "pandas", extra = ["computation", "excel", "output-formatting", "performance", "plot"] },
     { name = "plotly" },
@@ -1428,6 +1441,7 @@ dev = [
 requires-dist = [
     { name = "attrs", specifier = ">=25.3.0" },
     { name = "dash", specifier = ">=3.0.3" },
+    { name = "dash-bootstrap-components", specifier = ">=2.0.1" },
     { name = "matplotlib", specifier = ">=3.10.0" },
     { name = "pandas", extras = ["computation", "excel", "output-formatting", "performance", "plot"], specifier = ">=2.2.3" },
     { name = "plotly", specifier = ">=6.0.1" },
