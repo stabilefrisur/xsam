@@ -442,7 +442,52 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                             "quantiles": [float(q.strip()) for q in quantiles[i].split(",") if q.strip()] if quantiles and i < len(quantiles) and quantiles[i] else [],
                         }
                     ))
-                # ...extend for other plot types as needed...
+                elif plot_type == "dual_axis_line":
+                    left = safe_get(locals().get('left_y', []), i, None)
+                    right = safe_get(locals().get('right_y', []), i, None)
+                    plots.append(PlotConfig(
+                        plot_type="dual_axis_line",
+                        config={
+                            "left_y_column": left,
+                            "right_y_column": right,
+                        }
+                    ))
+                elif plot_type == "efficient_frontier_time":
+                    area_cols = safe_get(locals().get('areas', []), i, [])
+                    x_col = safe_get(locals().get('xcol', []), i, None)
+                    plots.append(PlotConfig(
+                        plot_type="efficient_frontier_time",
+                        config={
+                            "area_columns": area_cols or [],
+                            "x_column": x_col,
+                        }
+                    ))
+                elif plot_type == "regression_scatter":
+                    x = safe_get(locals().get('xcol', []), i, None)
+                    y = safe_get(locals().get('ycol', []), i, None)
+                    reg_line_i = bool(safe_get(locals().get('reg_line', []), i, False))
+                    std_err_i = bool(safe_get(locals().get('std_err', []), i, False))
+                    highlight_latest_i = bool(safe_get(locals().get('highlight_latest', []), i, False))
+                    plots.append(PlotConfig(
+                        plot_type="regression_scatter",
+                        config={
+                            "x_column": x,
+                            "y_column": y,
+                            "regression_line": reg_line_i,
+                            "show_std_err": std_err_i,
+                            "highlight_latest": highlight_latest_i,
+                        }
+                    ))
+                elif plot_type == "distribution":
+                    plots.append(PlotConfig(
+                        plot_type="distribution",
+                        config={
+                            "columns": config or [],
+                            "show_latest": bool(show_latest[i]) if i < len(show_latest) else False,
+                            "show_median": bool(show_median[i]) if i < len(show_median) else False,
+                            "quantiles": [float(q.strip()) for q in quantiles[i].split(",") if q.strip()] if quantiles and i < len(quantiles) and quantiles[i] else [],
+                        }
+                    ))
             chart_config = ChartConfig(
                 plots=plots,
                 layout=layout,
@@ -475,17 +520,92 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
 
         return outputs
 
-    def load_chart_config(chart_config_dict, plot_types, plot_configs, show_latest, show_median, quantiles):
+    def load_chart_config(chart_config_dict, plot_types, plot_configs, show_latest, show_median, quantiles,
+                         left_y=None, right_y=None, areas=None, xcol=None, ycol=None, reg_line=None, std_err=None, highlight_latest=None):
         import dash
         from xsam.charts.config import ChartConfig
         if not chart_config_dict:
             return [dash.no_update]*5 + [dash.no_update]
         chart_config = ChartConfig.from_dict(chart_config_dict)
         plot_types_arr = [p.plot_type or "line" for p in chart_config.plots]
-        plot_configs_arr = [p.config.get("y_columns", []) if p.config.get("y_columns", []) is not None else [] for p in chart_config.plots]
-        show_latest_arr = [bool(p.config.get("show_latest", False)) for p in chart_config.plots]
-        show_median_arr = [bool(p.config.get("show_median", False)) for p in chart_config.plots]
-        quantiles_arr = [','.join(str(q) for q in p.config.get("quantiles", [])) if p.config.get("quantiles", []) is not None else "" for p in chart_config.plots]
+        plot_configs_arr = []
+        show_latest_arr = []
+        show_median_arr = []
+        quantiles_arr = []
+        left_y_arr = []
+        right_y_arr = []
+        areas_arr = []
+        xcol_arr = []
+        ycol_arr = []
+        reg_line_arr = []
+        std_err_arr = []
+        highlight_latest_arr = []
+        for p in chart_config.plots:
+            if p.plot_type == "line":
+                plot_configs_arr.append(p.config.get("y_columns", []))
+                show_latest_arr.append(bool(p.config.get("show_latest", False)))
+                show_median_arr.append(bool(p.config.get("show_median", False)))
+                quantiles_arr.append(','.join(str(q) for q in p.config.get("quantiles", [])))
+                left_y_arr.append(None)
+                right_y_arr.append(None)
+                areas_arr.append(None)
+                xcol_arr.append(None)
+                ycol_arr.append(None)
+                reg_line_arr.append(None)
+                std_err_arr.append(None)
+                highlight_latest_arr.append(None)
+            elif p.plot_type == "dual_axis_line":
+                plot_configs_arr.append(None)
+                show_latest_arr.append(None)
+                show_median_arr.append(None)
+                quantiles_arr.append(None)
+                left_y_arr.append(p.config.get("left_y_column"))
+                right_y_arr.append(p.config.get("right_y_column"))
+                areas_arr.append(None)
+                xcol_arr.append(None)
+                ycol_arr.append(None)
+                reg_line_arr.append(None)
+                std_err_arr.append(None)
+                highlight_latest_arr.append(None)
+            elif p.plot_type == "efficient_frontier_time":
+                plot_configs_arr.append(None)
+                show_latest_arr.append(None)
+                show_median_arr.append(None)
+                quantiles_arr.append(None)
+                left_y_arr.append(None)
+                right_y_arr.append(None)
+                areas_arr.append(p.config.get("area_columns", []))
+                xcol_arr.append(p.config.get("x_column"))
+                ycol_arr.append(None)
+                reg_line_arr.append(None)
+                std_err_arr.append(None)
+                highlight_latest_arr.append(None)
+            elif p.plot_type == "regression_scatter":
+                plot_configs_arr.append(None)
+                show_latest_arr.append(None)
+                show_median_arr.append(None)
+                quantiles_arr.append(None)
+                left_y_arr.append(None)
+                right_y_arr.append(None)
+                areas_arr.append(None)
+                xcol_arr.append(p.config.get("x_column"))
+                ycol_arr.append(p.config.get("y_column"))
+                reg_line_arr.append(p.config.get("regression_line", False))
+                std_err_arr.append(p.config.get("show_std_err", False))
+                highlight_latest_arr.append(p.config.get("highlight_latest", False))
+            elif p.plot_type == "distribution":
+                plot_configs_arr.append(p.config.get("columns", []))
+                show_latest_arr.append(bool(p.config.get("show_latest", False)))
+                show_median_arr.append(bool(p.config.get("show_median", False)))
+                quantiles_arr.append(','.join(str(q) for q in p.config.get("quantiles", [])))
+                left_y_arr.append(None)
+                right_y_arr.append(None)
+                areas_arr.append(None)
+                xcol_arr.append(None)
+                ycol_arr.append(None)
+                reg_line_arr.append(None)
+                std_err_arr.append(None)
+                highlight_latest_arr.append(None)
         n_current = len(plot_types)
         return (
             pad_or_truncate(plot_types_arr, n_current, "line"),
