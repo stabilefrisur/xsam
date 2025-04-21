@@ -16,12 +16,20 @@ from io import StringIO
 import time
 
 # === Constants ===
-external_stylesheets = [dbc.themes.LUX]
+external_stylesheets = [dbc.themes.BOOTSTRAP]
 
 # === Helper Functions ===
 def safe_get(lst, idx, default):
     """Safely get an item from a list, or return default if out of range or None."""
     return lst[idx] if idx < len(lst) and lst[idx] is not None else default
+
+def pad_or_truncate(lst, target_len, default):
+            # Always return a value of the correct type, never None or undefined
+            if len(lst) < target_len:
+                return lst + [default] * (target_len - len(lst))
+            elif len(lst) > target_len:
+                return lst[:target_len]
+            return lst
 
 # === Main App Entrypoint ===
 def run_dash_app(df: pd.DataFrame | None = None) -> None:
@@ -56,9 +64,9 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                     html.Div(id="data-upload-feedback", className="mb-2"),
                 ], style={"display": "none" if df is not None else "block"}),
                 html.Hr(),
-                html.Label("Arrangement Layout", className="mt-2"),
+                html.Label("Layout", className="mt-2"),
                 dcc.Dropdown(
-                    id="arrangement-layout",
+                    id="layout",
                     options=[
                         {"label": layout_label, "value": layout_label} for layout_label in ["1x1", "1x2", "2x1", "2x2", "3x1", "4x1", "5x1"]
                     ],
@@ -70,15 +78,15 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 dcc.Input(id="figure-title", type="text", value="", className="mb-3", style={"width": "100%"}),
                 html.Div(id="plot-type-controls"),
                 html.Div(id="plot-config-controls"),
-                html.Button("Save Arrangement", id="save-arrangement", className="mt-3 btn btn-primary"),
+                html.Button("Save", id="save", className="mt-3 btn btn-primary"),
                 dcc.Upload(
-                    id="load-arrangement",
-                    children=html.Button("Load Arrangement", className="btn btn-secondary mt-2"),
+                    id="load",
+                    children=html.Button("Load", className="btn btn-secondary mt-2"),
                     multiple=False
                 ),
-                html.Div(id="arrangement-feedback", className="mt-2"),
-                dcc.Download(id="download-arrangement"),
-                dcc.Store(id="arrangement-loaded-trigger"),
+                html.Div(id="feedback", className="mt-2"),
+                dcc.Download(id="download"),
+                dcc.Store(id="loaded-trigger"),
             ], width=3, style={"backgroundColor": "#f8f9fa", "padding": "24px", "minHeight": "100vh"}),
             dbc.Col([
                 dcc.Loading(
@@ -95,7 +103,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         Output("plot-type-controls", "children"),
         Output("plot-config-controls", "children"),
         Input("stored-data", "data"),
-        Input("arrangement-layout", "value"),
+        Input("layout", "value"),
         Input({'type': 'plot-type', 'index': ALL}, 'value'),
     )
     def update_plot_controls(data_json: str | None, layout: str, plot_types: list[str | None]) -> tuple[list, list]:
@@ -224,14 +232,13 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
     @app.callback(
         Output("charts-area", "children"),
         Input("stored-data", "data"),
-        Input("arrangement-layout", "value"),
+        Input("layout", "value"),
         Input("figure-title", "value"),
         Input({'type': 'plot-type', 'index': ALL}, 'value'),
         Input({'type': 'plot-config', 'index': ALL}, 'value'),
         Input({'type': 'show-latest', 'index': ALL}, 'value'),
         Input({'type': 'show-median', 'index': ALL}, 'value'),
         Input({'type': 'quantiles', 'index': ALL}, 'value'),
-        # Add Inputs for all custom controls for each chart type
         Input({'type': 'left-y', 'index': ALL}, 'value'),
         Input({'type': 'right-y', 'index': ALL}, 'value'),
         Input({'type': 'areas', 'index': ALL}, 'value'),
@@ -240,7 +247,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         Input({'type': 'reg-line', 'index': ALL}, 'value'),
         Input({'type': 'std-err', 'index': ALL}, 'value'),
         Input({'type': 'highlight-latest', 'index': ALL}, 'value'),
-        Input("arrangement-loaded-trigger", "data"),
+        Input("loaded-trigger", "data"),
         prevent_initial_call=True,
     )
     def render_charts(
@@ -375,19 +382,19 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         return [dcc.Graph(figure=fig, config={"responsive": True}, style={"height": f"{400*rows}px"})]
 
     @app.callback(
-        Output("arrangement-layout", "value"),
+        Output("layout", "value"),
         Output("figure-title", "value"),
         Output({'type': 'plot-type', 'index': ALL}, 'value'),
         Output({'type': 'plot-config', 'index': ALL}, 'value'),
         Output({'type': 'show-latest', 'index': ALL}, 'value'),
         Output({'type': 'show-median', 'index': ALL}, 'value'),
         Output({'type': 'quantiles', 'index': ALL}, 'value'),
-        Output("arrangement-feedback", "children"),
-        Output("download-arrangement", "data"),
-        Output("arrangement-loaded-trigger", "data"),
-        Input("save-arrangement", "n_clicks"),
-        Input("load-arrangement", "contents"),
-        State("arrangement-layout", "value"),
+        Output("feedback", "children"),
+        Output("download", "data"),
+        Output("loaded-trigger", "data"),
+        Input("save", "n_clicks"),
+        Input("load", "contents"),
+        State("layout", "value"),
         State("figure-title", "value"),
         State({'type': 'plot-type', 'index': ALL}, 'value'),
         State({'type': 'plot-config', 'index': ALL}, 'value'),
@@ -396,38 +403,32 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         State({'type': 'quantiles', 'index': ALL}, 'value'),
         prevent_initial_call=True,
     )
-    def handle_arrangement(
+    def handle_chart_config(
         save_clicks, load_contents,
         layout, figure_title, plot_types, plot_configs, show_latest, show_median, quantiles
     ):
         import dash
         import base64
         import json
-        from xsam.charts.arrangement import ArrangementConfig, PlotConfig
+        from xsam.charts.config import ChartConfig, PlotConfig
 
         ctx = dash.callback_context
         triggered = ctx.triggered_id
 
         outputs = [
-            dash.no_update,  # arrangement-layout.value
+            dash.no_update,  # layout.value
             dash.no_update,  # figure-title.value
             [dash.no_update] * len(plot_types),      # plot-type (ALL)
             [dash.no_update] * len(plot_configs),    # plot-config (ALL)
             [dash.no_update] * len(show_latest),     # show-latest (ALL)
             [dash.no_update] * len(show_median),     # show-median (ALL)
             [dash.no_update] * len(quantiles),       # quantiles (ALL)
-            dash.no_update,  # arrangement-feedback.children
-            dash.no_update,  # download-arrangement.data
-            dash.no_update,  # arrangement-loaded-trigger.data
+            dash.no_update,  # feedback.children
+            dash.no_update,  # download.data
+            dash.no_update,  # loaded-trigger.data
         ]
 
-        def pad_or_truncate(lst, target_len):
-            if (len(lst) < target_len):
-                return lst + [dash.no_update] * (target_len - len(lst))
-            else:
-                return lst[:target_len]
-
-        if triggered == "save-arrangement" and save_clicks:
+        if triggered == "save" and save_clicks:
             plots = []
             for i, plot_type in enumerate(plot_types):
                 config = plot_configs[i] if i < len(plot_configs) else None
@@ -442,25 +443,25 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                         }
                     ))
                 # ...extend for other plot types as needed...
-            arrangement = ArrangementConfig(
+            chart_config = ChartConfig(
                 plots=plots,
                 layout=layout,
                 figure_title=figure_title,
                 shared_legend=False,
             )
-            arrangement_json = json.dumps(arrangement.to_dict(), indent=2)
-            outputs[7] = dbc.Alert("Arrangement saved!", color="success", dismissable=True, duration=3000)
-            outputs[8] = dict(content=arrangement_json, filename="xsam_arrangement.json")
+            chart_config_json = json.dumps(chart_config.to_dict(), indent=2)
+            outputs[7] = dbc.Alert("Chart config saved!", color="success", dismissable=True, duration=3000)
+            outputs[8] = dict(content=chart_config_json, filename="xsam_chart_config.json")
             outputs[9] = str(time.time())  # update trigger
             return outputs
 
-        if triggered == "load-arrangement" and load_contents:
+        if triggered == "load" and load_contents:
             content_type, content_string = load_contents.split(',')
             decoded = base64.b64decode(content_string)
-            arrangement_dict = json.loads(decoded.decode("utf-8"))
-            pattern_outputs = load_arrangement_step2(arrangement_dict, plot_types, plot_configs, show_latest, show_median, quantiles)
+            chart_config_dict = json.loads(decoded.decode("utf-8"))
+            pattern_outputs = load_chart_config(chart_config_dict, plot_types, plot_configs, show_latest, show_median, quantiles)
             return (
-                dash.no_update,  # arrangement-layout.value
+                dash.no_update,  # layout.value
                 dash.no_update,  # figure-title.value
                 pattern_outputs[0],  # plot-types
                 pattern_outputs[1],  # plot-configs
@@ -468,38 +469,31 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 pattern_outputs[3],  # show-median
                 pattern_outputs[4],  # quantiles
                 pattern_outputs[5],  # feedback
-                dash.no_update,      # download-arrangement.data
-                dash.no_update,      # arrangement-loaded-trigger.data
+                dash.no_update,      # download.data
+                dash.no_update,      # loaded-trigger.data
             )
 
         return outputs
 
-    def load_arrangement_step2(arrangement_dict, plot_types, plot_configs, show_latest, show_median, quantiles):
+    def load_chart_config(chart_config_dict, plot_types, plot_configs, show_latest, show_median, quantiles):
         import dash
-        from xsam.charts.arrangement import ArrangementConfig
-        if not arrangement_dict:
+        from xsam.charts.config import ChartConfig
+        if not chart_config_dict:
             return [dash.no_update]*5 + [dash.no_update]
-        arrangement = ArrangementConfig.from_dict(arrangement_dict)
-        plot_types_arr = [p.plot_type or "line" for p in arrangement.plots]
-        plot_configs_arr = [p.config.get("y_columns", []) if p.config.get("y_columns", []) is not None else [] for p in arrangement.plots]
-        show_latest_arr = [bool(p.config.get("show_latest", False)) for p in arrangement.plots]
-        show_median_arr = [bool(p.config.get("show_median", False)) for p in arrangement.plots]
-        quantiles_arr = [','.join(str(q) for q in p.config.get("quantiles", [])) if p.config.get("quantiles", []) is not None else "" for p in arrangement.plots]
+        chart_config = ChartConfig.from_dict(chart_config_dict)
+        plot_types_arr = [p.plot_type or "line" for p in chart_config.plots]
+        plot_configs_arr = [p.config.get("y_columns", []) if p.config.get("y_columns", []) is not None else [] for p in chart_config.plots]
+        show_latest_arr = [bool(p.config.get("show_latest", False)) for p in chart_config.plots]
+        show_median_arr = [bool(p.config.get("show_median", False)) for p in chart_config.plots]
+        quantiles_arr = [','.join(str(q) for q in p.config.get("quantiles", [])) if p.config.get("quantiles", []) is not None else "" for p in chart_config.plots]
         n_current = len(plot_types)
-        def pad_or_truncate(lst, target_len, default):
-            # Always return a value of the correct type, never None or undefined
-            if len(lst) < target_len:
-                return lst + [default] * (target_len - len(lst))
-            elif len(lst) > target_len:
-                return lst[:target_len]
-            return lst
         return (
             pad_or_truncate(plot_types_arr, n_current, "line"),
             pad_or_truncate(plot_configs_arr, n_current, []),
             pad_or_truncate(show_latest_arr, n_current, False),
             pad_or_truncate(show_median_arr, n_current, False),
             pad_or_truncate(quantiles_arr, n_current, ""),
-            dbc.Alert("Arrangement loaded!", color="info", dismissable=True, duration=3000),
+            dbc.Alert("Chart config loaded!", color="info", dismissable=True, duration=3000),
         )
 
     app.run(debug=True)
