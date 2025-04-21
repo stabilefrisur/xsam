@@ -21,6 +21,12 @@ class EfficientFrontierTimeConfig:
     yaxis_title: str | None = None
 
 
+@define
+class EfficientFrontierTimeChartConfig:
+    area_columns: list[str]
+    x_column: str | None = None
+
+
 def plot_efficient_frontier_time(
     df: pd.DataFrame,
     config: EfficientFrontierTimeConfig,
@@ -56,4 +62,19 @@ def plot_efficient_frontier_time(
         legend_title=config.labels.get("legend", ""),
         template="plotly_white",
     )
+    return fig
+
+
+def plot_efficient_frontier_time_chart(df: pd.DataFrame, config: EfficientFrontierTimeChartConfig) -> go.Figure:
+    fig = go.Figure()
+    x = df[config.x_column] if config.x_column and config.x_column in df.columns else df.index
+    for col in config.area_columns:
+        if col in df.columns:
+            fig.add_trace(go.Scatter(
+                x=x,
+                y=df[col],
+                mode='lines',
+                stackgroup='one',
+                name=col
+            ))
     return fig

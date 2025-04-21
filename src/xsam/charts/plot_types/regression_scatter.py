@@ -26,6 +26,15 @@ class RegressionScatterConfig:
     scatter_name: str = "Data"
 
 
+@define
+class RegressionScatterChartConfig:
+    x_column: str
+    y_column: str
+    regression_line: bool = False
+    show_std_err: bool = False
+    highlight_latest: bool = False
+
+
 def plot_regression_scatter(
     df: pd.DataFrame,
     config: RegressionScatterConfig,
@@ -69,21 +78,29 @@ def plot_regression_scatter(
                 )
             )
         if config.show_std_err:
-            y_upper = y_pred + std_err
-            y_lower = y_pred - std_err
-            fillcolor = f"rgba({int(COLORS[1][1:3],16)},{int(COLORS[1][3:5],16)},{int(COLORS[1][5:7],16)},0.2)"
-            fig.add_trace(
-                go.Scatter(
-                    x=np.concatenate([x_sorted, x_sorted[::-1]]),
-                    y=np.concatenate([y_upper, y_lower[::-1]]),
-                    fill="toself",
-                    fillcolor=fillcolor,
-                    line=dict(color="rgba(255,255,255,0)"),
-                    hoverinfo="skip",
-                    showlegend=True,
-                    name="Std Error",
+            n = len(x)
+            mean_x = np.mean(x)
+            s_xx = np.sum((x - mean_x) ** 2)
+            if s_xx > 0 and std_err > 0:
+                se_pred = std_err * np.sqrt(1/n + (x_sorted - mean_x) ** 2 / s_xx)
+                y_upper = y_pred + se_pred
+                y_lower = y_pred - se_pred
+                fillcolor = f"rgba({int(COLORS[1][1:3],16)},{int(COLORS[1][3:5],16)},{int(COLORS[1][5:7],16)},0.2)"
+                fig.add_trace(
+                    go.Scatter(
+                        x=np.concatenate([x_sorted, x_sorted[::-1]]),
+                        y=np.concatenate([y_upper, y_lower[::-1]]),
+                        fill="toself",
+                        fillcolor=fillcolor,
+                        line=dict(color="rgba(255,255,255,0)"),
+                        hoverinfo="skip",
+                        showlegend=True,
+                        name="Std Error",
+                    )
                 )
-            )
+            else:
+                # s_xx is zero (all x are the same) or std_err is zero, so skip band
+                pass
     # Highlight latest observation
     if config.highlight_latest:
         fig.add_trace(
@@ -102,4 +119,16 @@ def plot_regression_scatter(
         legend_title=config.labels.get("legend", ""),
         template="plotly_white",
     )
+    return fig
+
+
+def plot_regression_scatter_chart(df: pd.DataFrame, config: RegressionScatterChartConfig) -> go.Figure:
+    fig = go.Figure()
+    if config.x_column in df.columns and config.y_column in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df[config.x_column],
+            y=df[config.y_column],
+            mode='markers',
+            name=f"{config.y_column} vs {config.x_column}"
+        ))
     return fig

@@ -38,48 +38,45 @@ def plot_dual_axis_line_chart(
     Returns:
         go.Figure: Plotly Figure object representing the dual-axis line chart.
     """
-    x = df[config.x_column] if config.x_column else df.index
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=x,
+    # Left Y axis
+    if config.left_y_column in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df.index,
             y=df[config.left_y_column],
-            mode="lines",
-            name=config.left_y_name,
-            line=dict(color=COLORS[0]),
+            name=config.left_y_column,
             yaxis="y1",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=x,
+            line=dict(color=COLORS[0])
+        ))
+    # Right Y axis
+    if config.right_y_column in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df.index,
             y=df[config.right_y_column],
-            mode="lines",
-            name=config.right_y_name,
-            line=dict(color=COLORS[1]),
+            name=config.right_y_column,
             yaxis="y2",
-        )
-    )
+            line=dict(color=COLORS[1])
+        ))
     fig.update_layout(
-        title=config.title,
-        xaxis=dict(title=config.xaxis_title or config.labels.get("x") or (config.x_column or "Index")),
         yaxis=dict(
-            title=dict(
-                text=config.left_yaxis_title or config.labels.get("left_y") or config.left_y_name,
-                font=dict(color=COLORS[0]),
-            ),
-            tickfont=dict(color=COLORS[0]),
+            title=config.left_y_column,
+            showgrid=True,
+            zeroline=False,
+            showline=True,
+            showticklabels=True,
         ),
         yaxis2=dict(
-            title=dict(
-                text=config.right_yaxis_title or config.labels.get("right_y") or config.right_y_name,
-                font=dict(color=COLORS[1]),
-            ),
-            tickfont=dict(color=COLORS[1]),
-            overlaying="y",
-            side="right",
+            title=config.right_y_column,
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            zeroline=False,
+            anchor='x',
+            showline=True,
+            showticklabels=True,
+            position=1
         ),
-        legend_title=config.labels.get("legend", ""),
-        template="plotly_white",
+        legend=dict(x=0.01, y=0.99),
+        template='plotly_white'
     )
     return fig

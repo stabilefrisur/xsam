@@ -1,77 +1,81 @@
 """
 Distribution (KDE) chart for xsam charts module.
 
-Up to 3 KDE plots, no fill, optional quantile lines for each.
+Plots up to 5 KDE curves. Optional overlays (latest, median, quantiles) are shown as vertical lines.
 """
 
 from attrs import define, field
+import numpy as np
 import plotly.graph_objs as go
 import pandas as pd
-import numpy as np
-from scipy.stats import gaussian_kde
+from typing import Sequence
 from .colors import COLORS
-
+from scipy.stats import gaussian_kde
 
 @define(slots=True, frozen=True)
 class DistributionChartConfig:
-    columns: list[str]
+    columns: Sequence[str]
     title: str = ""
     labels: dict[str, str] = field(factory=dict)
-    quantiles: dict[str, list[float]] = field(factory=dict)  # column -> list of quantiles
-    kde_points: int = 200
+    show_latest: bool = False
+    show_median: bool = False
+    quantiles: Sequence[float] | None = None
     xaxis_title: str | None = None
     yaxis_title: str | None = None
-    line_names: list[str] | None = None
-
+    kde_points: int = 200
 
 def plot_distribution_chart(
     df: pd.DataFrame,
     config: DistributionChartConfig,
 ) -> go.Figure:
     """
-    Plot up to 3 KDE curves, optionally with quantile lines for each.
-
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        config (DistributionChartConfig): Configuration for the chart.
-
-    Returns:
-        go.Figure: Plotly Figure object representing the KDE chart.
+    Plot up to 5 KDE curves with optional vertical overlays for latest, median, and quantiles.
     """
     fig = go.Figure()
-    for i, col in enumerate(config.columns[:3]):
+    max_y = 0.0
+    kde_results = []
+    for i, col in enumerate(config.columns[:5]):
         data = df[col].dropna()
-        # Only plot KDE if there are at least 2 data points
-        if len(data) < 2:
+        if data.empty:
             continue
         kde = gaussian_kde(data)
-        x_grid = np.linspace(data.min(), data.max(), config.kde_points)
-        y_grid = kde(x_grid)
-        name = config.line_names[i] if config.line_names and i < len(config.line_names) else col
+        x_grid = pd.Series(data).sort_values()
+        x_min, x_max = x_grid.iloc[0], x_grid.iloc[-1]
+        x_vals = pd.Series(np.linspace(x_min, x_max, config.kde_points))
+        y_vals = kde(x_vals)
+        max_y = max(max_y, y_vals.max())
+        kde_results.append((i, col, x_vals, y_vals))
+    for i, col, x_vals, y_vals in kde_results:
+        name = col
         fig.add_trace(
             go.Scatter(
-                x=x_grid,
-                y=y_grid,
+                x=x_vals,
+                y=y_vals,
                 mode="lines",
                 name=name,
-                line=dict(color=COLORS[i % len(COLORS)], width=2),
-                fill=None,
+                line=dict(color=COLORS[i % len(COLORS)]),
             )
         )
-        # Quantile lines
-        if col in config.quantiles:
-            for q in config.quantiles[col]:
-                q_val = data.quantile(q)
-                fig.add_trace(
-                    go.Scatter(
-                        x=[q_val, q_val],
-                        y=[0, kde(q_val)],
-                        mode="lines",
-                        name=f"{name} Q{int(q*100)}",
-                        line=dict(color=COLORS[i % len(COLORS)], dash="dot", width=1),
-                        showlegend=False,
-                    )
+        overlays = []
+        data = df[col].dropna()
+        if config.show_latest:
+            overlays.append((data.iloc[-1], f"{name} Latest", "solid"))
+        if config.show_median:
+            overlays.append((data.median(), f"{name} Median", "dash"))
+        if config.quantiles:
+            for q in config.quantiles:
+                overlays.append((data.quantile(q), f"{name} Q{int(q*100)}", "dot"))
+        for val, label, dash in overlays:
+            fig.add_trace(
+                go.Scatter(
+                    x=[val, val],
+                    y=[0, max_y * 1.05],
+                    mode="lines",
+                    name=label,
+                    line=dict(color=COLORS[i % len(COLORS)], dash=dash, width=1),
+                    showlegend=True,
                 )
+            )
     fig.update_layout(
         title=config.title,
         xaxis_title=config.xaxis_title or config.labels.get("x") or "Value",
@@ -80,3 +84,4 @@ def plot_distribution_chart(
         template="plotly_white",
     )
     return fig
+
