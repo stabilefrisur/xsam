@@ -16,7 +16,7 @@ from io import StringIO
 import time
 
 # === Constants ===
-external_stylesheets = [dbc.themes.BOOTSTRAP]
+external_stylesheets = [dbc.themes.SKETCHY]
 
 # === Helper Functions ===
 def safe_get(lst, idx, default):
@@ -34,10 +34,10 @@ def pad_or_truncate(lst, target_len, default):
 # === Main App Entrypoint ===
 def run_dash_app(df: pd.DataFrame | None = None) -> None:
     """
-    Run the Dash app. If a DataFrame is provided, it will be used as the working data and the upload UI will be hidden.
+    Run the Dash app. Must provide a DataFrame.
 
     Args:
-        df (pd.DataFrame | None): DataFrame to use for plotting. If None, user must upload data.
+        df (pd.DataFrame | None): DataFrame to use for plotting.
     """
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
     app.title = "XSAM Charts"
@@ -47,22 +47,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         dbc.Row([
             dbc.Col([
                 html.H2("XSAM Charts", className="mb-4 mt-2"),
-                dcc.Store(id="stored-data", data=df.to_json(date_format="iso") if df is not None else None),
-                html.Div([
-                    dcc.Upload(
-                        id="upload-data",
-                        children=html.Div([
-                            "Drag and Drop or ", html.A("Select a CSV File")
-                        ]),
-                        style={
-                            "width": "100%", "height": "60px", "lineHeight": "60px",
-                            "borderWidth": "1px", "borderStyle": "dashed", "borderRadius": "5px",
-                            "textAlign": "center", "marginBottom": "20px"
-                        },
-                        multiple=False
-                    ),
-                    html.Div(id="data-upload-feedback", className="mb-2"),
-                ], style={"display": "none" if df is not None else "block"}),
+                dcc.Store(id="stored-data", data=df.to_json(date_format="iso")),
                 html.Hr(),
                 html.Label("Layout", className="mt-2"),
                 dcc.Dropdown(
@@ -618,7 +603,6 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
 
     app.run(debug=True)
 
-# For CLI usage: fallback to upload if run directly
 if __name__ == "__main__":
     # Generate a sample DataFrame. Use random numbers that are somewhat similar to price data.
     import numpy as np
