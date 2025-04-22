@@ -91,7 +91,3 @@ def test_set_log_path(tmp_path):
     with new_log_path.with_suffix(".log").open("r") as log_file:
         logs = log_file.readlines()
     assert any(str(test_file_path) in log for log in logs)
-
-
-if __name__ == "__main__":
-    pytest.main()

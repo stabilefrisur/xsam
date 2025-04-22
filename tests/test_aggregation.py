@@ -95,9 +95,3 @@ def test_aggregate_fields_by_label_no_label_no_regex() -> None:
         }
     ).set_index("Group")
     assert result.equals(test_result), f"Expected {test_result}, but got {result}"
-
-
-if __name__ == "__main__":
-    test_aggregate_fields_by_label_with_regex()
-    test_aggregate_fields_by_label_with_label()
-    test_aggregate_fields_by_label_no_label_no_regex()

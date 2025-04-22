@@ -72,14 +72,14 @@ def save(
 
 def save_csv(obj, full_path: Path) -> None:
     if isinstance(obj, pd.DataFrame) or isinstance(obj, pd.Series):
-        obj.to_csv(full_path, index=False, encoding="utf-8")
+        obj.to_csv(full_path, index=True, encoding="utf-8")
         action_logger.info(f"CSV saved to {full_path}")
     elif isinstance(obj, dict):
         flattened_dict = flatten_dict(obj)
         for key, value in flattened_dict.items():
             if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
                 key_file_path = full_path.with_name(f"{full_path.stem}_{key.replace('.', '_')}{full_path.suffix}")
-                value.to_csv(key_file_path, index=False, encoding="utf-8")
+                value.to_csv(key_file_path, index=True, encoding="utf-8")
                 action_logger.info(f"CSV saved to {key_file_path}")
             else:
                 raise TypeError("CSV format is only supported for DataFrame or Series in dictionary values")
@@ -89,19 +89,19 @@ def save_csv(obj, full_path: Path) -> None:
 
 def save_xlsx(obj, full_path: Path) -> None:
     if isinstance(obj, pd.DataFrame):
-        obj.to_excel(full_path, index=False)
+        obj.to_excel(full_path, index=True)
     elif isinstance(obj, pd.Series):
-        obj.to_frame().to_excel(full_path, index=False)
+        obj.to_frame().to_excel(full_path, index=True)
     elif isinstance(obj, dict):
         flattened_dict = flatten_dict(obj)
         with pd.ExcelWriter(full_path) as writer:
             for key, value in flattened_dict.items():
                 if isinstance(value, pd.DataFrame):
                     value.to_excel(
-                        writer, sheet_name=key[:31], index=False
+                        writer, sheet_name=key[:31], index=True
                     )  # Excel sheet names are limited to 31 characters
                 elif isinstance(value, pd.Series):
-                    value.to_frame().to_excel(writer, sheet_name=key[:31], index=False)
+                    value.to_frame().to_excel(writer, sheet_name=key[:31], index=True)
                 else:
                     raise TypeError("Unsupported type in dictionary for xlsx format")
     else:

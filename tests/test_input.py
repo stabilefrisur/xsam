@@ -26,7 +26,3 @@ def test_load_pickle(sample_dataframe, tmp_path):
     save(sample_dataframe, "pickle_data", "pickle", tmp_path, add_timestamp=False)
     loaded_df = load("pickle_data", "pickle")
     pd.testing.assert_frame_equal(sample_dataframe, loaded_df)
-
-
-if __name__ == "__main__":
-    pytest.main()
