@@ -16,7 +16,7 @@ from io import StringIO
 import time
 
 # === Constants ===
-external_stylesheets = [dbc.themes.SKETCHY]
+external_stylesheets = [dbc.themes.BOOTSTRAP]
 
 # === Helper Functions ===
 def safe_get(lst, idx, default):
@@ -46,32 +46,35 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
     app.layout = dbc.Container([
         dbc.Row([
             dbc.Col([
-                html.H2("XSAM Charts", className="mb-4 mt-2"),
+                html.H1("XSAM Charts", className="mb-2 mt-2"),
                 dcc.Store(id="stored-data", data=df.to_json(date_format="iso")),
+                dcc.Store(id="loaded-trigger"),
                 html.Hr(),
+                dbc.Row([
+                    dbc.Col([
+                        html.Button("Save", id="save", className="btn btn-primary w-100 mt-2 mb-2"),
+                        dcc.Download(id="download")
+                    ], width=6),
+                    dbc.Col([
+                        html.Button("Load", id="load", className="btn btn-primary w-100 mt-2 mb-2"),
+                        dcc.Upload(id="upload")
+                    ], width=6),
+                ], className="mt-2 mb-2"),
                 html.Label("Layout", className="mt-2"),
                 dcc.Dropdown(
                     id="layout",
-                    options=[
-                        {"label": layout_label, "value": layout_label} for layout_label in ["1x1", "1x2", "2x1", "2x2", "3x1", "4x1", "5x1"]
-                    ],
+                    options=[{"label": layout_label, "value": layout_label} for layout_label in ["1x1", "1x2", "2x1", "2x2", "3x1", "4x1", "5x1"]],
                     value="1x1",
                     clearable=False,
-                    className="mb-3"
+                    className="mb-2"
                 ),
-                html.Label("Figure Title"),
-                dcc.Input(id="figure-title", type="text", value="", className="mb-3", style={"width": "100%"}),
-                html.Div(id="plot-type-controls"),
-                html.Div(id="plot-config-controls"),
-                html.Button("Save", id="save", className="mt-3 btn btn-primary"),
-                dcc.Upload(
-                    id="load",
-                    children=html.Button("Load", className="btn btn-secondary mt-2"),
-                    multiple=False
-                ),
-                html.Div(id="feedback", className="mt-2"),
-                dcc.Download(id="download"),
-                dcc.Store(id="loaded-trigger"),
+                html.Label("Figure Title", className="mt-2"),
+                dcc.Input(id="figure-title", type="text", value="", className="mb-2", style={"width": "100%"}),
+                html.Div(id="plot-title-controls", className="mt-2 mb-2"),
+                html.Div(id="plot-type-controls", className="mt-2 mb-4"),
+                html.Hr(),
+                html.Div(id="plot-config-controls", className="mt-4 mb-2"),
+                html.Div(id="feedback", className="mt-2 mb-2"),
             ], width=3, style={"backgroundColor": "#f8f9fa", "padding": "24px", "minHeight": "100vh"}),
             dbc.Col([
                 dcc.Loading(
@@ -79,11 +82,28 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                     type="circle",
                     children=html.Div(id="charts-area")
                 )
-            ], width=9)
+            ], width=9),
         ], className="gx-4"),
     ], fluid=True)
 
     # === Callbacks ===
+    @app.callback(
+        Output("plot-title-controls", "children"),
+        Input("layout", "value"),
+        Input({'type': 'plot-title', 'index': ALL}, 'value'),
+    )
+    def update_plot_title_controls(layout, plot_titles):
+        n_plots = {"1x1": 1, "1x2": 2, "2x1": 2, "2x2": 4, "3x1": 3, "4x1": 4, "5x1": 5}[layout]
+        controls = []
+        for i in range(n_plots):
+            controls.append(
+                html.Div([
+                    html.Label(f"Plot {i+1} Title"),
+                    dcc.Input(id={'type': 'plot-title', 'index': i}, type="text", value=safe_get(plot_titles, i, f"Plot {i+1}"), style={"width": "100%"}, className="mb-2"),
+                ], className="mb-2")
+            )
+        return controls
+
     @app.callback(
         Output("plot-type-controls", "children"),
         Output("plot-config-controls", "children"),
@@ -219,6 +239,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         Input("stored-data", "data"),
         Input("layout", "value"),
         Input("figure-title", "value"),
+        Input({'type': 'plot-title', 'index': ALL}, 'value'),
         Input({'type': 'plot-type', 'index': ALL}, 'value'),
         Input({'type': 'plot-config', 'index': ALL}, 'value'),
         Input({'type': 'show-latest', 'index': ALL}, 'value'),
@@ -239,6 +260,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         data_json: str | None,
         layout: str,
         figure_title: str | None,
+        plot_titles: list[str | None],
         plot_types: list[str | None],
         plot_configs: list[list[str] | None],
         show_latest: list[bool | None],
@@ -269,14 +291,18 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         }
         rows, cols = layout_map.get(layout, (1, 1))
         n_subplots = rows * cols
+        subplot_titles = [safe_get(plot_titles, i, f"Plot {i+1}") for i in range(n_subplots)]
         fig = make_subplots(
             rows=rows,
             cols=cols,
-            subplot_titles=[f"Plot {i+1}" for i in range(n_subplots)],
-            specs=[[{"secondary_y": True} for _ in range(cols)] for _ in range(rows)]
+            subplot_titles=subplot_titles,
+            specs=[[{"secondary_y": True} for _ in range(cols)] for _ in range(rows)],
+            horizontal_spacing=0.1,  # tighter horizontal spacing
+            vertical_spacing=0.1     # tighter vertical spacing
         )
         for i in range(n_subplots):
             plot_type = safe_get(plot_types, i, "line")
+            plot_title = safe_get(plot_titles, i, f"Plot {i+1}")
             if plot_type == "line":
                 y_columns = safe_get(plot_configs, i, [])
                 show_latest_i = safe_get(show_latest, i, False)
@@ -291,6 +317,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                         quantiles_list = None
                 config = LineChartConfig(
                     columns=y_columns,
+                    title=plot_title,
                     show_latest=bool(show_latest_i),
                     show_median=bool(show_median_i),
                     quantiles=quantiles_list,
@@ -305,11 +332,11 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 config = DualAxisLineChartConfig(
                     left_y_column=left,
                     right_y_column=right,
+                    title=plot_title,
                 )
                 if left or right:
                     subfig = plot_dual_axis_line_chart(df, config)
                     for trace in subfig.data:
-                        # Assign secondary_y=True for right axis, False for left axis
                         is_right = hasattr(trace, 'yaxis') and getattr(trace, 'yaxis', None) == 'y2'
                         fig.add_trace(trace, row=(i // cols) + 1, col=(i % cols) + 1, secondary_y=is_right)
             elif plot_type == "efficient_frontier_time":
@@ -320,6 +347,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                     config = EfficientFrontierTimeChartConfig(
                         area_columns=area_cols,
                         x_column=x_col or (df.columns[0] if len(df.columns) > 0 else None),
+                        title=plot_title,
                     )
                     subfig = plot_efficient_frontier_time_chart(df, config)
                     for trace in subfig.data:
@@ -335,6 +363,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                     config = RegressionScatterConfig(
                         x_column=x,
                         y_column=y,
+                        title=plot_title,
                         regression_line=reg_line_i,
                         show_std_err=std_err_i,
                         highlight_latest=highlight_latest_i,
@@ -356,6 +385,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                         quantiles_list = None
                 config = DistributionChartConfig(
                     columns=y_columns,
+                    title=plot_title,
                     show_latest=bool(show_latest_i),
                     show_median=bool(show_median_i),
                     quantiles=quantiles_list,
@@ -363,7 +393,22 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 subfig = plot_distribution_chart(df, config)
                 for trace in subfig.data:
                     fig.add_trace(trace, row=(i // cols) + 1, col=(i % cols) + 1)
-        fig.update_layout(height=400 * rows, showlegend=True, margin=dict(t=40, l=10, r=10, b=10), title=figure_title or "")
+            # Add a dummy invisible trace as a divider in the legend, except after the last plot
+            if i < n_subplots - 1:
+                fig.add_trace({
+                    'type': 'scatter',
+                    'x': [None],
+                    'y': [None],
+                    'mode': 'lines',
+                    'name': ' ',
+                    'showlegend': True,
+                    'line': {'color': 'rgba(0,0,0,0)'},
+                    'hoverinfo': 'skip',
+                }, row=1, col=1)
+        fig.update_layout(height=400 * rows, showlegend=True, margin=dict(t=80, l=5, r=5, b=5), title={
+            'text': figure_title or "",
+            'font': {'size': 28}  # Increased font size
+        })
         return [dcc.Graph(figure=fig, config={"responsive": True}, style={"height": f"{400*rows}px"})]
 
     @app.callback(
@@ -378,7 +423,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         Output("download", "data"),
         Output("loaded-trigger", "data"),
         Input("save", "n_clicks"),
-        Input("load", "contents"),
+        Input("upload", "contents"),
         State("layout", "value"),
         State("figure-title", "value"),
         State({'type': 'plot-type', 'index': ALL}, 'value'),
@@ -485,7 +530,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
             outputs[9] = str(time.time())  # update trigger
             return outputs
 
-        if triggered == "load" and load_contents:
+        if triggered == "upload" and load_contents:
             content_type, content_string = load_contents.split(',')
             decoded = base64.b64decode(content_string)
             chart_config_dict = json.loads(decoded.decode("utf-8"))
