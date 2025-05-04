@@ -14,6 +14,7 @@ import pandas as pd
 from dash.dependencies import ALL
 from io import StringIO
 import time
+import plotly.graph_objects as go
 
 # === Constants ===
 external_stylesheets = [dbc.themes.BOOTSTRAP]
@@ -305,6 +306,15 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         for i in range(n_subplots):
             plot_type = safe_get(plot_types, i, "line")
             plot_title = safe_get(plot_titles, i, f"Plot {i+1}")
+            # fig.add_trace(
+            #     go.Scatter(
+            #         x=[None],
+            #         y=[None],
+            #         mode="lines",
+            #         name=f"{plot_title}",
+            #         showlegend=True,
+            #         line=go.scatter.Line(color="white", width=1, dash="solid"),
+            #     ))
             if plot_type == "line":
                 y_columns = safe_get(plot_configs, i, [])
                 show_latest_i = safe_get(show_latest, i, False)
@@ -349,7 +359,6 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                     config = EfficientFrontierTimeChartConfig(
                         area_columns=area_cols,
                         x_column=x_col or (df.columns[0] if len(df.columns) > 0 else None),
-                        title=plot_title,
                     )
                     subfig = plot_efficient_frontier_time_chart(df, config)
                     for trace in subfig.data:
@@ -395,18 +404,17 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 subfig = plot_distribution_chart(df, config)
                 for trace in subfig.data:
                     fig.add_trace(trace, row=(i // cols) + 1, col=(i % cols) + 1)
-            # Add a dummy invisible trace as a divider in the legend, except after the last plot
-            if i < n_subplots - 1:
-                fig.add_trace({
-                    'type': 'scatter',
-                    'x': [None],
-                    'y': [None],
-                    'mode': 'lines',
-                    'name': ' ',
-                    'showlegend': True,
-                    'line': {'color': 'rgba(0,0,0,0)'},
-                    'hoverinfo': 'skip',
-                }, row=1, col=1)
+            # # Add a dummy invisible traces as a divider in the legend, except after the last plot
+            for j in range(2):
+                fig.add_trace(
+                    go.Scatter(
+                        x=[None],
+                        y=[None],
+                        mode="lines",
+                        name=' ',
+                        showlegend=True,
+                        line=dict(color="rgba(0, 0, 0, 0)"),
+                    ))
         fig.update_layout(height=400 * rows, showlegend=True, margin=dict(t=80, l=5, r=5, b=5), title={
             'text': figure_title or "",
             'font': {'size': 28}  # Increased font size
