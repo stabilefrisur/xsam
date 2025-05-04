@@ -114,10 +114,28 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         Input("stored-data", "data"),
         Input("layout", "value"),
         Input({'type': 'plot-type', 'index': ALL}, 'value'),
+        State({'type': 'plot-config', 'index': ALL}, 'value'),
+        State({'type': 'show-latest', 'index': ALL}, 'value'),
+        State({'type': 'show-median', 'index': ALL}, 'value'),
+        State({'type': 'quantiles', 'index': ALL}, 'value'),
+        State({'type': 'left-y', 'index': ALL}, 'value'),
+        State({'type': 'right-y', 'index': ALL}, 'value'),
+        State({'type': 'areas', 'index': ALL}, 'value'),
+        State({'type': 'xcol_ef', 'index': ALL}, 'value'),
+        State({'type': 'xcol', 'index': ALL}, 'value'),
+        State({'type': 'ycol', 'index': ALL}, 'value'),
+        State({'type': 'reg-line', 'index': ALL}, 'value'),
+        State({'type': 'std-err', 'index': ALL}, 'value'),
+        State({'type': 'highlight-latest', 'index': ALL}, 'value'),
     )
-    def update_plot_controls(data_json: str | None, layout: str, plot_types: list[str | None]) -> tuple[list, list]:
+    def update_plot_controls(
+        data_json: str | None, layout: str, plot_types: list[str | None],
+        plot_configs=None, show_latest=None, show_median=None, quantiles=None,
+        left_y=None, right_y=None, areas=None, xcol_ef=None, xcol=None, ycol=None, reg_line=None, std_err=None, highlight_latest=None
+    ) -> tuple[list, list]:
         """
         Dynamically generate plot type and config controls based on the DataFrame, layout, and selected plot types.
+        Persist state for each plot's controls.
         """
         if not data_json:
             return [], []
@@ -146,8 +164,10 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                     )
                 ], className="mb-4")
             )
-            if current_type == "line":
-                plot_config_controls.append(
+            # Always include all controls, hide those not relevant for the current type
+            plot_config_controls.append(
+                html.Div([
+                    # Line/Distribution controls
                     html.Div([
                         html.Label(f"Plot {i+1} Columns", title="Select columns."),
                         dcc.Dropdown(
@@ -155,87 +175,71 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                             options=[{"label": c, "value": c} for c in df.columns],
                             multi=True,
                             maxHeight=200,
-                            className="mb-2"
+                            className="mb-2",
+                            value=safe_get(plot_configs or [], i, []),
                         ),
-                        dbc.Checkbox(id={'type': 'show-latest', 'index': i}, label="Latest Marker", className="mb-1"),
-                        dbc.Checkbox(id={'type': 'show-median', 'index': i}, label="Median Line", className="mb-1"),
+                        dbc.Checkbox(id={'type': 'show-latest', 'index': i}, label="Latest Marker", className="mb-1", value=safe_get(show_latest or [], i, False)),
+                        dbc.Checkbox(id={'type': 'show-median', 'index': i}, label="Median Line", className="mb-1", value=safe_get(show_median or [], i, False)),
                         html.Label("Quantiles (e.g. 0.25,0.75)", className="mb-1"),
-                        dcc.Input(id={'type': 'quantiles', 'index': i}, type="text", placeholder="", className="mb-1", debounce=True, style={"width": "100%"}),
-                    ], className="mb-4")
-                )
-            elif current_type == "dual_axis_line":
-                plot_config_controls.append(
+                        dcc.Input(id={'type': 'quantiles', 'index': i}, type="text", placeholder="", className="mb-1", debounce=True, style={"width": "100%"}, value=safe_get(quantiles or [], i, "")),
+                    ], style={"display": "block" if current_type in ["line", "distribution"] else "none"}),
+                    # Dual axis controls
                     html.Div([
                         html.Label(f"Plot {i+1} Left Y Column"),
                         dcc.Dropdown(
                             id={'type': 'left-y', 'index': i},
                             options=[{"label": c, "value": c} for c in df.columns],
-                            className="mb-2"
+                            className="mb-2",
+                            value=safe_get(left_y or [], i, None),
                         ),
                         html.Label(f"Plot {i+1} Right Y Column"),
                         dcc.Dropdown(
                             id={'type': 'right-y', 'index': i},
                             options=[{"label": c, "value": c} for c in df.columns],
-                            className="mb-2"
+                            className="mb-2",
+                            value=safe_get(right_y or [], i, None),
                         ),
-                    ], className="mb-4")
-                )
-            elif current_type == "efficient_frontier_time":
-                plot_config_controls.append(
+                    ], style={"display": "block" if current_type == "dual_axis_line" else "none"}),
+                    # Efficient frontier controls
                     html.Div([
                         html.Label(f"Plot {i+1} Area Columns (allocations)", title="Select columns for stacked areas."),
                         dcc.Dropdown(
                             id={'type': 'areas', 'index': i},
                             options=[{"label": c, "value": c} for c in df.columns],
                             multi=True,
-                            className="mb-2"
+                            className="mb-2",
+                            value=safe_get(areas or [], i, []),
                         ),
                         html.Label(f"Plot {i+1} X Column (time)"),
                         dcc.Dropdown(
-                            id={'type': 'xcol', 'index': i},
+                            id={'type': 'xcol_ef', 'index': i},
                             options=[{"label": c, "value": c} for c in df.columns],
-                            className="mb-2"
+                            className="mb-2",
+                            value=safe_get(xcol_ef or [], i, None),
                         ),
-                    ], className="mb-4")
-                )
-            elif current_type == "regression_scatter":
-                plot_config_controls.append(
+                    ], style={"display": "block" if current_type == "efficient_frontier_time" else "none"}),
+                    # Regression scatter controls
                     html.Div([
                         html.Label(f"Plot {i+1} X Column"),
                         dcc.Dropdown(
                             id={'type': 'xcol', 'index': i},
                             options=[{"label": c, "value": c} for c in df.columns],
-                            className="mb-2"
+                            className="mb-2",
+                            value=safe_get(xcol or [], i, None),
                         ),
                         html.Label(f"Plot {i+1} Y Column"),
                         dcc.Dropdown(
                             id={'type': 'ycol', 'index': i},
                             options=[{"label": c, "value": c} for c in df.columns],
-                            className="mb-2"
+                            className="mb-2",
+                            value=safe_get(ycol or [], i, None),
                         ),
-                        dbc.Checkbox(id={'type': 'reg-line', 'index': i}, label="Regression Line", className="mb-1"),
-                        dbc.Checkbox(id={'type': 'std-err', 'index': i}, label="Std Error Band", className="mb-1"),
-                        dbc.Checkbox(id={'type': 'highlight-latest', 'index': i}, label="Latest Marker", className="mb-1"),
-                    ], className="mb-4")
-                )
-            elif current_type == "distribution":
-                plot_config_controls.append(
-                    html.Div([
-                        html.Label(f"Plot {i+1} Columns (KDE)", title="Select columns for KDE plot."),
-                        dcc.Dropdown(
-                            id={'type': 'plot-config', 'index': i},
-                            options=[{"label": c, "value": c} for c in df.columns],
-                            multi=True,
-                            maxHeight=200,
-                            className="mb-2"
-                        ),
-                        dbc.Checkbox(id={'type': 'show-latest', 'index': i}, label="Latest Marker", className="mb-1"),
-                        dbc.Checkbox(id={'type': 'show-median', 'index': i}, label="Median Line", className="mb-1"),
-                        html.Label("Quantiles (e.g. 0.25,0.75)", className="mb-1"),
-                        dcc.Input(id={'type': 'quantiles', 'index': i}, type="text", placeholder="", className="mb-1", debounce=True, style={"width": "100%"}),
-                    ], className="mb-4")
-                )
-                
+                        dbc.Checkbox(id={'type': 'reg-line', 'index': i}, label="Regression Line", className="mb-1", value=safe_get(reg_line or [], i, False)),
+                        dbc.Checkbox(id={'type': 'std-err', 'index': i}, label="Std Error Band", className="mb-1", value=safe_get(std_err or [], i, False)),
+                        dbc.Checkbox(id={'type': 'highlight-latest', 'index': i}, label="Latest Marker", className="mb-1", value=safe_get(highlight_latest or [], i, False)),
+                    ], style={"display": "block" if current_type == "regression_scatter" else "none"}),
+                ], className="mb-4")
+            )
         return plot_type_controls, plot_config_controls
 
     @app.callback(
@@ -252,6 +256,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         Input({'type': 'left-y', 'index': ALL}, 'value'),
         Input({'type': 'right-y', 'index': ALL}, 'value'),
         Input({'type': 'areas', 'index': ALL}, 'value'),
+        Input({'type': 'xcol_ef', 'index': ALL}, 'value'),
         Input({'type': 'xcol', 'index': ALL}, 'value'),
         Input({'type': 'ycol', 'index': ALL}, 'value'),
         Input({'type': 'reg-line', 'index': ALL}, 'value'),
@@ -273,6 +278,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         left_y: list[str | None],
         right_y: list[str | None],
         areas: list[list[str] | None],
+        xcol_ef: list[str | None],
         xcol: list[str | None],
         ycol: list[str | None],
         reg_line: list[bool | None],
@@ -307,15 +313,6 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         for i in range(n_subplots):
             plot_type = safe_get(plot_types, i, "line")
             plot_title = safe_get(plot_titles, i, f"Plot {i+1}")
-            # fig.add_trace(
-            #     go.Scatter(
-            #         x=[None],
-            #         y=[None],
-            #         mode="lines",
-            #         name=f"{plot_title}",
-            #         showlegend=True,
-            #         line=go.scatter.Line(color="white", width=1, dash="solid"),
-            #     ))
             if plot_type == "line":
                 y_columns = safe_get(plot_configs, i, [])
                 show_latest_i = safe_get(show_latest, i, False)
@@ -354,7 +351,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                         fig.add_trace(trace, row=(i // cols) + 1, col=(i % cols) + 1, secondary_y=is_right)
             elif plot_type == "efficient_frontier_time":
                 area_cols = safe_get(areas, i, [])
-                x_col = safe_get(xcol, i, None)
+                x_col = safe_get(xcol_ef, i, None)
                 if area_cols:
                     from xsam.charts.plot_types.efficient_frontier_time import EfficientFrontierTimeChartConfig, plot_efficient_frontier_time_chart
                     config = EfficientFrontierTimeChartConfig(
@@ -370,19 +367,26 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 reg_line_i = bool(safe_get(reg_line, i, False))
                 std_err_i = bool(safe_get(std_err, i, False))
                 highlight_latest_i = bool(safe_get(highlight_latest, i, False))
-                if x and y:
-                    from xsam.charts.plot_types.regression_scatter import RegressionScatterConfig, plot_regression_scatter
-                    config = RegressionScatterConfig(
-                        x_column=x,
-                        y_column=y,
-                        title=plot_title,
-                        regression_line=reg_line_i,
-                        show_std_err=std_err_i,
-                        highlight_latest=highlight_latest_i,
+                if not x or not y:
+                    fig.add_annotation(
+                        text=f"Select both X and Y columns for Regression Scatter (Plot {i+1})<br>xcol: {x!r}, ycol: {y!r}",
+                        xref="paper", yref="paper",
+                        x=(i % cols + 0.5) / cols, y=1 - (i // cols + 0.5) / rows,
+                        showarrow=False, font=dict(color="red", size=14),
                     )
-                    subfig = plot_regression_scatter(df, config)
-                    for trace in subfig.data:
-                        fig.add_trace(trace, row=(i // cols) + 1, col=(i % cols) + 1)
+                    continue
+                from xsam.charts.plot_types.regression_scatter import RegressionScatterConfig, plot_regression_scatter
+                config = RegressionScatterConfig(
+                    x_column=x,
+                    y_column=y,
+                    title=plot_title,
+                    regression_line=reg_line_i,
+                    show_std_err=std_err_i,
+                    highlight_latest=highlight_latest_i,
+                )
+                subfig = plot_regression_scatter(df, config)
+                for trace in subfig.data:
+                    fig.add_trace(trace, row=(i // cols) + 1, col=(i % cols) + 1)
             elif plot_type == "distribution":
                 y_columns = safe_get(plot_configs, i, [])
                 show_latest_i = safe_get(show_latest, i, False)
@@ -495,7 +499,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                     ))
                 elif plot_type == "efficient_frontier_time":
                     area_cols = safe_get(locals().get('areas', []), i, [])
-                    x_col = safe_get(locals().get('xcol', []), i, None)
+                    x_col = safe_get(locals().get('xcol_ef', []), i, None)
                     plots.append(PlotConfig(
                         plot_type="efficient_frontier_time",
                         config={
@@ -562,7 +566,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         return outputs
 
     def load_chart_config(chart_config_dict, plot_types, plot_configs, show_latest, show_median, quantiles,
-                         left_y=None, right_y=None, areas=None, xcol=None, ycol=None, reg_line=None, std_err=None, highlight_latest=None):
+                         left_y=None, right_y=None, areas=None, xcol_ef=None, xcol=None, ycol=None, reg_line=None, std_err=None, highlight_latest=None):
         import dash
         from xsam.charts.config import ChartConfig
         if not chart_config_dict:
@@ -576,6 +580,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         left_y_arr = []
         right_y_arr = []
         areas_arr = []
+        xcol_ef_arr = []
         xcol_arr = []
         ycol_arr = []
         reg_line_arr = []
@@ -590,6 +595,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 left_y_arr.append(None)
                 right_y_arr.append(None)
                 areas_arr.append(None)
+                xcol_ef_arr.append(None)
                 xcol_arr.append(None)
                 ycol_arr.append(None)
                 reg_line_arr.append(None)
@@ -603,6 +609,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 left_y_arr.append(p.config.get("left_y_column"))
                 right_y_arr.append(p.config.get("right_y_column"))
                 areas_arr.append(None)
+                xcol_ef_arr.append(None)
                 xcol_arr.append(None)
                 ycol_arr.append(None)
                 reg_line_arr.append(None)
@@ -616,7 +623,8 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 left_y_arr.append(None)
                 right_y_arr.append(None)
                 areas_arr.append(p.config.get("area_columns", []))
-                xcol_arr.append(p.config.get("x_column"))
+                xcol_ef_arr.append(p.config.get("x_column"))
+                xcol_arr.append(None)
                 ycol_arr.append(None)
                 reg_line_arr.append(None)
                 std_err_arr.append(None)
@@ -629,6 +637,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 left_y_arr.append(None)
                 right_y_arr.append(None)
                 areas_arr.append(None)
+                xcol_ef_arr.append(None)
                 xcol_arr.append(p.config.get("x_column"))
                 ycol_arr.append(p.config.get("y_column"))
                 reg_line_arr.append(p.config.get("regression_line", False))
@@ -642,6 +651,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 left_y_arr.append(None)
                 right_y_arr.append(None)
                 areas_arr.append(None)
+                xcol_ef_arr.append(None)
                 xcol_arr.append(None)
                 ycol_arr.append(None)
                 reg_line_arr.append(None)
