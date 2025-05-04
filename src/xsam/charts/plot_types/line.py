@@ -8,7 +8,6 @@ from attrs import define, field
 import plotly.graph_objs as go
 import pandas as pd
 from typing import Sequence
-from .colors import COLORS
 
 
 @define(slots=True, frozen=True)
@@ -45,8 +44,7 @@ def plot_line_chart(
                 x=df.index,
                 y=df[col],
                 mode="lines",
-                name=name,
-                line=dict(color=COLORS[i % len(COLORS)]),
+                name=name
             )
         )
         if config.show_latest:
@@ -56,7 +54,7 @@ def plot_line_chart(
                     y=[df[col].iloc[-1]],
                     mode="markers",
                     name=f"{name} Latest",
-                    marker=dict(symbol="circle", size=10, color=COLORS[i % len(COLORS)]),
+                    marker=dict(symbol="circle", size=10),
                 )
             )
         if config.show_median:
@@ -67,7 +65,7 @@ def plot_line_chart(
                     y=[median_val] * len(df),
                     mode="lines",
                     name=f"{name} Median",
-                    line=dict(dash="dash", color=COLORS[i % len(COLORS)], width=1),
+                    line=dict(dash="dash", width=1),
                 )
             )
         if config.quantiles:
@@ -79,7 +77,7 @@ def plot_line_chart(
                         y=[q_val] * len(df),
                         mode="lines",
                         name=f"{name} Q{int(q * 100)}",
-                        line=dict(dash="dot", color=COLORS[i % len(COLORS)], width=1),
+                        line=dict(dash="dot", width=1),
                     )
                 )
     fig.update_layout(
@@ -87,6 +85,5 @@ def plot_line_chart(
         xaxis_title=config.xaxis_title or config.labels.get("x") or "Index",
         yaxis_title=config.yaxis_title or config.labels.get("y") or "Value",
         legend_title=config.labels.get("legend", ""),
-        template="plotly_white",
     )
     return fig

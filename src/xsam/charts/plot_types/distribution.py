@@ -9,7 +9,6 @@ import numpy as np
 import plotly.graph_objs as go
 import pandas as pd
 from typing import Sequence
-from .colors import COLORS
 from scipy.stats import gaussian_kde
 
 @define(slots=True, frozen=True)
@@ -52,8 +51,7 @@ def plot_distribution_chart(
                 x=x_vals,
                 y=y_vals,
                 mode="lines",
-                name=name,
-                line=dict(color=COLORS[i % len(COLORS)]),
+                name=name
             )
         )
         overlays = []
@@ -72,7 +70,7 @@ def plot_distribution_chart(
                     y=[0, max_y * 1.05],
                     mode="lines",
                     name=label,
-                    line=dict(color=COLORS[i % len(COLORS)], dash=dash, width=1),
+                    line=dict(dash=dash, width=1),
                     showlegend=True,
                 )
             )
@@ -81,7 +79,6 @@ def plot_distribution_chart(
         xaxis_title=config.xaxis_title or config.labels.get("x") or "Value",
         yaxis_title=config.yaxis_title or config.labels.get("y") or "Density",
         legend_title=config.labels.get("legend", ""),
-        template="plotly_white",
     )
     return fig
 

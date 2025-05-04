@@ -17,7 +17,8 @@ import time
 import plotly.graph_objects as go
 
 # === Constants ===
-external_stylesheets = [dbc.themes.BOOTSTRAP]
+TEMPLATE = "simple_white"
+external_stylesheets = [dbc.themes.SKETCHY]
 
 # === Helper Functions ===
 def safe_get(lst, idx, default):
@@ -102,7 +103,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
             controls.append(
                 html.Div([
                     html.Label(f"Plot {i+1} Title"),
-                    dcc.Input(id={'type': 'plot-title', 'index': i}, type="text", value=safe_get(plot_titles, i, f"Plot {i+1}"), style={"width": "100%"}, className="mb-2"),
+                    dcc.Input(id={'type': 'plot-title', 'index': i}, type="text", value=safe_get(plot_titles, i, ""), style={"width": "100%"}, className="mb-2"),
                 ], className="mb-2")
             )
         return controls
@@ -418,7 +419,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         fig.update_layout(height=400 * rows, showlegend=True, margin=dict(t=80, l=5, r=5, b=5), title={
             'text': figure_title or "",
             'font': {'size': 28}  # Increased font size
-        })
+        }, template=TEMPLATE)
         return [dcc.Graph(figure=fig, config={"responsive": True}, style={"height": f"{400*rows}px"})]
 
     @app.callback(

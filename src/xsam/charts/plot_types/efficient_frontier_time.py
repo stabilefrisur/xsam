@@ -7,7 +7,6 @@ Stacked area chart: time on x-axis, allocation on y-axis, multiple assets/strate
 from attrs import define, field
 import plotly.graph_objs as go
 import pandas as pd
-from .colors import COLORS
 
 
 @define(slots=True, frozen=True)
@@ -51,8 +50,7 @@ def plot_efficient_frontier_time(
                 y=df[col],
                 mode="lines",
                 name=name,
-                stackgroup="one",
-                line=dict(width=0.5, color=COLORS[i % len(COLORS)]),
+                stackgroup="one"
             )
         )
     fig.update_layout(
@@ -60,7 +58,6 @@ def plot_efficient_frontier_time(
         xaxis_title=config.xaxis_title or config.labels.get("x") or (config.x_column or "Time"),
         yaxis_title=config.yaxis_title or config.labels.get("y") or "Allocation",
         legend_title=config.labels.get("legend", ""),
-        template="plotly_white",
     )
     return fig
 

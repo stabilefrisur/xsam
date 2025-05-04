@@ -7,7 +7,6 @@ Implements a line chart with two y-axes (left and right), supporting custom titl
 from attrs import define, field
 import plotly.graph_objs as go
 import pandas as pd
-from .colors import COLORS
 
 
 @define(slots=True, frozen=True)
@@ -45,8 +44,7 @@ def plot_dual_axis_line_chart(
             x=df.index,
             y=df[config.left_y_column],
             name=config.left_y_column,
-            yaxis="y1",
-            line=dict(color=COLORS[0])
+            yaxis="y1"
         ))
     # Right Y axis
     if config.right_y_column in df.columns:
@@ -54,8 +52,7 @@ def plot_dual_axis_line_chart(
             x=df.index,
             y=df[config.right_y_column],
             name=config.right_y_column,
-            yaxis="y2",
-            line=dict(color=COLORS[1])
+            yaxis="y2"
         ))
     fig.update_layout(
         yaxis=dict(
@@ -77,6 +74,5 @@ def plot_dual_axis_line_chart(
             position=1
         ),
         legend=dict(x=0.01, y=0.99),
-        template='plotly_white'
     )
     return fig

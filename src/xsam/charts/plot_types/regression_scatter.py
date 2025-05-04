@@ -9,7 +9,6 @@ import plotly.graph_objs as go
 import pandas as pd
 import numpy as np
 from scipy import stats
-from .colors import COLORS
 
 
 @define(slots=True, frozen=True)
@@ -59,7 +58,7 @@ def plot_regression_scatter(
             y=y,
             mode="markers",
             name=config.scatter_name,
-            marker=dict(color=COLORS[0], opacity=0.6),
+            marker=dict(opacity=0.6),
         )
     )
     # Regression line and std error
@@ -74,7 +73,7 @@ def plot_regression_scatter(
                     y=y_pred,
                     mode="lines",
                     name="Regression Line",
-                    line=dict(color=COLORS[1], dash="dash"),
+                    line=dict(dash="dash"),
                 )
             )
         if config.show_std_err:
@@ -115,7 +114,7 @@ def plot_regression_scatter(
                 y=[y.iloc[-1]],
                 mode="markers",
                 name="Latest",
-                marker=dict(color=COLORS[2], size=12, symbol="star"),
+                marker=dict(size=12, symbol="star"),
             )
         )
     fig.update_layout(
@@ -123,7 +122,6 @@ def plot_regression_scatter(
         xaxis_title=config.xaxis_title or config.labels.get("x") or config.x_column,
         yaxis_title=config.yaxis_title or config.labels.get("y") or config.y_column,
         legend_title=config.labels.get("legend", ""),
-        template="plotly_white",
     )
     return fig
 
