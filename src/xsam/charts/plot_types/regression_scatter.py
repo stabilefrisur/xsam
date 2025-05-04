@@ -82,9 +82,14 @@ def plot_regression_scatter(
             mean_x = np.mean(x)
             s_xx = np.sum((x - mean_x) ** 2)
             if s_xx > 0 and std_err > 0:
-                se_pred = std_err * np.sqrt(1/n + (x_sorted - mean_x) ** 2 / s_xx)
-                y_upper = y_pred + se_pred
-                y_lower = y_pred - se_pred
+                # 95% confidence interval for the regression line (mean prediction)
+                import scipy.stats
+                alpha = 0.05
+                dof = n - 2
+                tval = scipy.stats.t.ppf(1 - alpha/2, dof)
+                se_mean = std_err * np.sqrt(1/n + (x_sorted - mean_x) ** 2 / s_xx)
+                y_upper = y_pred + tval * se_mean
+                y_lower = y_pred - tval * se_mean
                 fillcolor = f"rgba({int(COLORS[1][1:3],16)},{int(COLORS[1][3:5],16)},{int(COLORS[1][5:7],16)},0.2)"
                 fig.add_trace(
                     go.Scatter(
@@ -95,12 +100,13 @@ def plot_regression_scatter(
                         line=dict(color="rgba(255,255,255,0)"),
                         hoverinfo="skip",
                         showlegend=True,
-                        name="Std Error",
+                        name="95% CI",
                     )
                 )
             else:
                 # s_xx is zero (all x are the same) or std_err is zero, so skip band
                 pass
+
     # Highlight latest observation
     if config.highlight_latest:
         fig.add_trace(

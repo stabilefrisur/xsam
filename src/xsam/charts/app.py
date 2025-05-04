@@ -70,10 +70,12 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 ),
                 html.Label("Figure Title", className="mt-2"),
                 dcc.Input(id="figure-title", type="text", value="", className="mb-2", style={"width": "100%"}),
-                html.Div(id="plot-title-controls", className="mt-2 mb-2"),
-                html.Div(id="plot-type-controls", className="mt-2 mb-4"),
                 html.Hr(),
-                html.Div(id="plot-config-controls", className="mt-4 mb-2"),
+                html.Div(id="plot-title-controls", className="mt-2 mb-2"),
+                html.Hr(),
+                html.Div(id="plot-type-controls", className="mt-2 mb-2"),
+                html.Hr(),
+                html.Div(id="plot-config-controls", className="mt-2 mb-2"),
                 html.Div(id="feedback", className="mt-2 mb-2"),
             ], width=3, style={"backgroundColor": "#f8f9fa", "padding": "24px", "minHeight": "100vh"}),
             dbc.Col([
@@ -140,7 +142,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                         clearable=False,
                         className="mb-2"
                     )
-                ], className="mb-3")
+                ], className="mb-4")
             )
             if current_type == "line":
                 plot_config_controls.append(
@@ -153,11 +155,11 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                             maxHeight=200,
                             className="mb-2"
                         ),
-                        dbc.Checkbox(id={'type': 'show-latest', 'index': i}, label="Show Latest Marker", className="mb-1"),
-                        dbc.Checkbox(id={'type': 'show-median', 'index': i}, label="Show Median Line", className="mb-1"),
-                        html.Label("Quantiles (comma-separated, e.g. 0.25,0.75)", className="mt-1"),
-                        dcc.Input(id={'type': 'quantiles', 'index': i}, type="text", placeholder="", className="mb-2", debounce=True, style={"width": "100%"}),
-                    ], className="mb-3")
+                        dbc.Checkbox(id={'type': 'show-latest', 'index': i}, label="Latest Marker", className="mb-1"),
+                        dbc.Checkbox(id={'type': 'show-median', 'index': i}, label="Median Line", className="mb-1"),
+                        html.Label("Quantiles (e.g. 0.25,0.75)", className="mb-1"),
+                        dcc.Input(id={'type': 'quantiles', 'index': i}, type="text", placeholder="", className="mb-1", debounce=True, style={"width": "100%"}),
+                    ], className="mb-4")
                 )
             elif current_type == "dual_axis_line":
                 plot_config_controls.append(
@@ -174,7 +176,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                             options=[{"label": c, "value": c} for c in df.columns],
                             className="mb-2"
                         ),
-                    ], className="mb-3")
+                    ], className="mb-4")
                 )
             elif current_type == "efficient_frontier_time":
                 plot_config_controls.append(
@@ -192,7 +194,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                             options=[{"label": c, "value": c} for c in df.columns],
                             className="mb-2"
                         ),
-                    ], className="mb-3")
+                    ], className="mb-4")
                 )
             elif current_type == "regression_scatter":
                 plot_config_controls.append(
@@ -209,10 +211,10 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                             options=[{"label": c, "value": c} for c in df.columns],
                             className="mb-2"
                         ),
-                        dbc.Checkbox(id={'type': 'reg-line', 'index': i}, label="Show Regression Line", className="mb-1"),
-                        dbc.Checkbox(id={'type': 'std-err', 'index': i}, label="Show Std Error Band", className="mb-1"),
-                        dbc.Checkbox(id={'type': 'highlight-latest', 'index': i}, label="Highlight Latest Observation", className="mb-1"),
-                    ], className="mb-3")
+                        dbc.Checkbox(id={'type': 'reg-line', 'index': i}, label="Regression Line", className="mb-1"),
+                        dbc.Checkbox(id={'type': 'std-err', 'index': i}, label="Std Error Band", className="mb-1"),
+                        dbc.Checkbox(id={'type': 'highlight-latest', 'index': i}, label="Latest Marker", className="mb-1"),
+                    ], className="mb-4")
                 )
             elif current_type == "distribution":
                 plot_config_controls.append(
@@ -225,11 +227,11 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                             maxHeight=200,
                             className="mb-2"
                         ),
-                        dbc.Checkbox(id={'type': 'show-latest', 'index': i}, label="Show Latest Marker", className="mb-1"),
-                        dbc.Checkbox(id={'type': 'show-median', 'index': i}, label="Show Median Line", className="mb-1"),
-                        html.Label("Quantiles (comma-separated, e.g. 0.25,0.75)", className="mt-1"),
-                        dcc.Input(id={'type': 'quantiles', 'index': i}, type="text", placeholder="", className="mb-2", debounce=True, style={"width": "100%"}),
-                    ], className="mb-3")
+                        dbc.Checkbox(id={'type': 'show-latest', 'index': i}, label="Latest Marker", className="mb-1"),
+                        dbc.Checkbox(id={'type': 'show-median', 'index': i}, label="Median Line", className="mb-1"),
+                        html.Label("Quantiles (e.g. 0.25,0.75)", className="mb-1"),
+                        dcc.Input(id={'type': 'quantiles', 'index': i}, type="text", placeholder="", className="mb-1", debounce=True, style={"width": "100%"}),
+                    ], className="mb-4")
                 )
                 
         return plot_type_controls, plot_config_controls
