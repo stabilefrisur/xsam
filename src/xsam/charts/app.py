@@ -355,7 +355,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                 if area_cols:
                     from xsam.charts.plot_types.efficient_frontier_time import EfficientFrontierTimeChartConfig, plot_efficient_frontier_time_chart
                     config = EfficientFrontierTimeChartConfig(
-                        area_columns=area_cols,
+                        y_columns=area_cols,
                         x_column=x_col or (df.columns[0] if len(df.columns) > 0 else None),
                     )
                     subfig = plot_efficient_frontier_time_chart(df, config)
@@ -375,8 +375,8 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                         showarrow=False, font=dict(color="red", size=14),
                     )
                     continue
-                from xsam.charts.plot_types.regression_scatter import RegressionScatterConfig, plot_regression_scatter
-                config = RegressionScatterConfig(
+                from xsam.charts.plot_types.regression_scatter import RegressionScatterChartConfig, plot_regression_scatter_chart
+                config = RegressionScatterChartConfig(
                     x_column=x,
                     y_column=y,
                     title=plot_title,
@@ -384,7 +384,7 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
                     show_std_err=std_err_i,
                     highlight_latest=highlight_latest_i,
                 )
-                subfig = plot_regression_scatter(df, config)
+                subfig = plot_regression_scatter_chart(df, config)
                 for trace in subfig.data:
                     fig.add_trace(trace, row=(i // cols) + 1, col=(i % cols) + 1)
             elif plot_type == "distribution":

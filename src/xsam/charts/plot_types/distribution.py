@@ -1,7 +1,7 @@
 """
 Distribution (KDE) chart for xsam charts module.
 
-Plots up to 5 KDE curves. Optional overlays (latest, median, quantiles) are shown as vertical lines.
+Plots KDE curves. Optional overlays (latest, median, quantiles) are shown as vertical lines.
 """
 
 from attrs import define, field
@@ -10,6 +10,8 @@ import plotly.graph_objs as go
 import pandas as pd
 from typing import Sequence
 from scipy.stats import gaussian_kde
+import plotly.express as px
+from itertools import cycle
 
 @define(slots=True, frozen=True)
 class DistributionChartConfig:
@@ -28,12 +30,13 @@ def plot_distribution_chart(
     config: DistributionChartConfig,
 ) -> go.Figure:
     """
-    Plot up to 5 KDE curves with optional vertical overlays for latest, median, and quantiles.
+    Plot KDE curves with optional vertical overlays for latest, median, and quantiles.
     """
     fig = go.Figure()
+    color_cycle = cycle(px.colors.qualitative.Plotly)
     max_y = 0.0
     kde_results = []
-    for i, col in enumerate(config.columns[:5]):
+    for i, col in enumerate(config.columns):
         data = df[col].dropna()
         if data.empty:
             continue
@@ -46,12 +49,14 @@ def plot_distribution_chart(
         kde_results.append((i, col, x_vals, y_vals))
     for i, col, x_vals, y_vals in kde_results:
         name = col
+        color = next(color_cycle)
         fig.add_trace(
             go.Scatter(
                 x=x_vals,
                 y=y_vals,
                 mode="lines",
-                name=name
+                name=name,
+                line=dict(dash="solid", width=2, color=color),
             )
         )
         overlays = []
@@ -64,13 +69,14 @@ def plot_distribution_chart(
             for q in config.quantiles:
                 overlays.append((data.quantile(q), f"{name} Q{int(q*100)}", "dot"))
         for val, label, dash in overlays:
+            color = next(color_cycle)
             fig.add_trace(
                 go.Scatter(
                     x=[val, val],
                     y=[0, max_y * 1.05],
                     mode="lines",
                     name=label,
-                    line=dict(dash=dash, width=1),
+                    line=dict(dash=dash, width=1, color=color),
                     showlegend=True,
                 )
             )
