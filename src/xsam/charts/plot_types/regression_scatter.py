@@ -89,13 +89,11 @@ def plot_regression_scatter(
                 se_mean = std_err * np.sqrt(1/n + (x_sorted - mean_x) ** 2 / s_xx)
                 y_upper = y_pred + tval * se_mean
                 y_lower = y_pred - tval * se_mean
-                fillcolor = f"rgba({int(COLORS[1][1:3],16)},{int(COLORS[1][3:5],16)},{int(COLORS[1][5:7],16)},0.2)"
                 fig.add_trace(
                     go.Scatter(
                         x=np.concatenate([x_sorted, x_sorted[::-1]]),
                         y=np.concatenate([y_upper, y_lower[::-1]]),
                         fill="toself",
-                        fillcolor=fillcolor,
                         line=dict(color="rgba(255,255,255,0)"),
                         hoverinfo="skip",
                         showlegend=True,
