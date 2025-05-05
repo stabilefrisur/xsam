@@ -3,6 +3,9 @@ docs/
 output/
 *.log
 todo.md
+best_practices.md
+src/xsam/charts/feature_description.md
+src/xsam/charts/ui_best_practices.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
