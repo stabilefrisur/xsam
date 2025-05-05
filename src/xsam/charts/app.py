@@ -13,11 +13,10 @@ from dash import dcc, html, Input, Output, State
 import pandas as pd
 from dash.dependencies import ALL
 from io import StringIO
-import plotly.graph_objects as go
 
 # === Constants ===
 TEMPLATE = "simple_white"
-external_stylesheets = [dbc.themes.SKETCHY]
+external_stylesheets = [dbc.themes.BOOTSTRAP]
 
 # === Helper Functions ===
 def safe_get(lst, idx, default):
@@ -41,13 +40,13 @@ def run_dash_app(df: pd.DataFrame | None = None) -> None:
         df (pd.DataFrame | None): DataFrame to use for plotting.
     """
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
-    app.title = "XSAM Charts"
+    app.title = "xsam charts"
 
     # === Layout ===
     app.layout = dbc.Container([
         dbc.Row([
             dbc.Col([
-                html.H1("XSAM Charts", className="mb-2 mt-2"),
+                html.H1(app.title, className="mb-2 mt-2"),
                 dcc.Store(id="stored-data", data=df.to_json(date_format="iso")),
                 dcc.Store(id="loaded-trigger"),
                 html.Hr(),
