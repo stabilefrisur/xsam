@@ -22,6 +22,7 @@ class DualAxisLineChartConfig:
     left_yaxis_title: str | None = None
     right_yaxis_title: str | None = None
     labels: dict[str, str] = field(factory=dict)
+    legendgroup: str = "group"
 
 
 def plot_dual_axis_line_chart(
@@ -48,7 +49,9 @@ def plot_dual_axis_line_chart(
             y=df[config.left_y_column],
             name=f"{config.left_y_column} LHS",
             line=dict(dash="solid", width=2, color=color),
-            yaxis="y1"
+            yaxis="y1",
+            legendgroup=config.legendgroup,
+            legendgrouptitle_text=config.title,
         ))
     # Right Y axis
     if config.right_y_column in df.columns:
@@ -58,7 +61,9 @@ def plot_dual_axis_line_chart(
             y=df[config.right_y_column],
             name=f"{config.right_y_column} RHS",
             line=dict(dash="solid", width=2, color=color),
-            yaxis="y2"
+            yaxis="y2",
+            legendgroup=config.legendgroup,
+            legendgrouptitle_text=config.title,
         ))
     fig.update_layout(
         yaxis=dict(
@@ -78,7 +83,6 @@ def plot_dual_axis_line_chart(
             showline=True,
             showticklabels=True,
             position=1
-        ),
-        legend=dict(x=0.01, y=0.99),
+        )
     )
     return fig

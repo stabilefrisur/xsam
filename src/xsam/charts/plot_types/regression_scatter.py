@@ -25,6 +25,7 @@ class RegressionScatterChartConfig:
     xaxis_title: str | None = None
     yaxis_title: str | None = None
     scatter_name: str = "Data"
+    legendgroup: str = "group"
 
 
 def plot_regression_scatter_chart(
@@ -54,6 +55,8 @@ def plot_regression_scatter_chart(
             mode="markers",
             name=config.scatter_name,
             marker=dict(opacity=0.6, color=color),
+            legendgroup=config.legendgroup,
+            legendgrouptitle_text=config.title,
         )
     )
     # Regression line and std error
@@ -70,6 +73,7 @@ def plot_regression_scatter_chart(
                     mode="lines",
                     name="Regression Line",
                     line=dict(dash="solid", width=2, color=color),
+                    legendgroup=config.legendgroup,
                 )
             )
         if config.show_std_err:
@@ -97,6 +101,7 @@ def plot_regression_scatter_chart(
                         line=dict(color=color, width=1, dash="dash"),
                         hoverinfo="skip",
                         showlegend=True,
+                        legendgroup=config.legendgroup,
                         name="95% CI",
                     )
                 )
@@ -114,12 +119,13 @@ def plot_regression_scatter_chart(
                 mode="markers",
                 name="Latest",
                 marker=dict(size=12, symbol="star", color=color),
+                legendgroup=config.legendgroup,
+                showlegend=True,
             )
         )
     fig.update_layout(
         title=config.title,
         xaxis_title=config.xaxis_title or config.labels.get("x") or config.x_column,
         yaxis_title=config.yaxis_title or config.labels.get("y") or config.y_column,
-        legend_title=config.labels.get("legend", ""),
     )
     return fig

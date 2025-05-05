@@ -22,6 +22,7 @@ class LineChartConfig:
     quantiles: Sequence[float] | None = None
     xaxis_title: str | None = None
     yaxis_title: str | None = None
+    legendgroup: str = "group"
 
 
 def plot_line_chart(
@@ -39,9 +40,9 @@ def plot_line_chart(
         go.Figure: Plotly Figure object representing the line chart.
     """
     fig = go.Figure()
+    color_cycle = cycle(px.colors.qualitative.Plotly)
     for i, col in enumerate(config.columns):
         # Reset color cycle
-        color_cycle = cycle(px.colors.qualitative.Plotly)
         name = col
         color = next(color_cycle)
         fig.add_trace(
@@ -51,6 +52,8 @@ def plot_line_chart(
                 mode="lines",
                 name=name,
                 line=dict(dash="solid", width=2, color=color),
+                legendgroup=config.legendgroup,
+                legendgrouptitle_text=config.title,
             )
         )
         if config.show_latest:
@@ -62,6 +65,7 @@ def plot_line_chart(
                     mode="markers",
                     name=f"{name} Latest",
                     marker=dict(symbol="circle", size=10, color=color),
+                    legendgroup=config.legendgroup,
                 )
             )
         if config.show_median:
@@ -74,6 +78,7 @@ def plot_line_chart(
                     mode="lines",
                     name=f"{name} Median",
                     line=dict(dash="dash", width=1, color=color),
+                    legendgroup=config.legendgroup,
                 )
             )
         if config.quantiles:
@@ -87,12 +92,12 @@ def plot_line_chart(
                         mode="lines",
                         name=f"{name} Q{int(q * 100)}",
                         line=dict(dash="dot", width=1, color=color),
+                        legendgroup=config.legendgroup,
                     )
                 )
     fig.update_layout(
         title=config.title,
         xaxis_title=config.xaxis_title or config.labels.get("x") or "Index",
         yaxis_title=config.yaxis_title or config.labels.get("y") or "Value",
-        legend_title=config.labels.get("legend", ""),
     )
     return fig

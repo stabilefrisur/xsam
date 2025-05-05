@@ -19,6 +19,7 @@ class EfficientFrontierTimeChartConfig:
     labels: dict[str, str] = field(factory=dict)
     xaxis_title: str | None = None
     yaxis_title: str | None = None
+    legendgroup: str = "group"
 
 
 def plot_efficient_frontier_time_chart(
@@ -49,12 +50,13 @@ def plot_efficient_frontier_time_chart(
                 name=name,
                 stackgroup="one",
                 line=dict(dash="solid", width=2, color=color),
+                legendgroup=config.legendgroup,
+                legendgrouptitle_text=config.title,
             )
         )
     fig.update_layout(
         title=config.title,
         xaxis_title=config.xaxis_title or config.labels.get("x") or (config.x_column or "Time"),
         yaxis_title=config.yaxis_title or config.labels.get("y") or "Allocation",
-        legend_title=config.labels.get("legend", ""),
     )
     return fig

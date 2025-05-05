@@ -24,6 +24,7 @@ class DistributionChartConfig:
     xaxis_title: str | None = None
     yaxis_title: str | None = None
     kde_points: int = 200
+    legendgroup: str = "group"
 
 def plot_distribution_chart(
     df: pd.DataFrame,
@@ -57,6 +58,8 @@ def plot_distribution_chart(
                 mode="lines",
                 name=name,
                 line=dict(dash="solid", width=2, color=color),
+                legendgroup=config.legendgroup,
+                legendgrouptitle_text=config.title,
             )
         )
         overlays = []
@@ -78,13 +81,13 @@ def plot_distribution_chart(
                     name=label,
                     line=dict(dash=dash, width=1, color=color),
                     showlegend=True,
+                    legendgroup=config.legendgroup,
                 )
             )
     fig.update_layout(
         title=config.title,
         xaxis_title=config.xaxis_title or config.labels.get("x") or "Value",
         yaxis_title=config.yaxis_title or config.labels.get("y") or "Density",
-        legend_title=config.labels.get("legend", ""),
     )
     return fig
 
