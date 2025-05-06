@@ -39,6 +39,14 @@ class ActionLogger:
         """
         self.logger.info(message)
 
+    def warning(self, message: str):
+        """Log a warning message.
+
+        Args:
+            message (str): Message to log.
+        """
+        self.logger.warning(message)
+
 
 class FileLogger:
     """A class to log file paths to a file and retrieve them by log ID or file name."""
