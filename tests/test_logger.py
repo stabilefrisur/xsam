@@ -19,20 +19,19 @@ def test_log_file_path(logger):
     assert log_entry[2].endswith(file_path)
 
 
-def test_get_file_path_by_log_id(logger):
-    file_path = "test_file.txt"
-    logger.log_file_path(file_path)
-    logs = logger.get_logs()
-    log_id = logs[0].strip().split(" | ")[0]
-    retrieved_path = logger.get_file_path(log_id=log_id)
-    assert retrieved_path.endswith(file_path)
-
-
 def test_get_file_path_by_file_name(logger):
     file_path = "test_file.txt"
     logger.log_file_path(file_path)
-    retrieved_path = logger.get_file_path(file_name="test_file.txt")
-    assert retrieved_path.endswith(file_path)
+    retrieved_path = logger.search_logs(keyword=file_path, return_type="path")[-1]
+    assert retrieved_path.name == file_path
+
+
+def test_get_file_path_by_log_id(logger):
+    file_path = "test_file.txt"
+    logger.log_file_path(file_path)
+    log_id = logger.search_logs(keyword=file_path, return_type="log_id")[-1]
+    retrieved_path = logger.search_logs(keyword=log_id, return_type="path")[-1]
+    assert str(retrieved_path).endswith(file_path)
 
 
 def test_get_logs(logger):
@@ -91,3 +90,7 @@ def test_set_log_path(tmp_path):
     with new_log_path.with_suffix(".log").open("r") as log_file:
         logs = log_file.readlines()
     assert any(str(test_file_path) in log for log in logs)
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

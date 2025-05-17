@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 import shutil
 import uuid
 from datetime import datetime, timezone
@@ -82,70 +81,38 @@ class FileLogger:
         message = f"{log_id} | {timestamp} | {absolute_path}"
         self.logger.info(message)
 
-    def get_file_path(self, log_id: str = None, file_name: str = None) -> str:
-        """Retrieve the file path by log ID or file name.
-
-        Args:
-            log_id (str, optional): Log ID. Defaults to None.
-            file_name (str, optional): File name. Defaults to None. If file_name is provided, it will return the last exact match or pattern match.
-
-        Returns:
-            str: File path or message.
-        """
-        assert log_id or file_name, "Either log_id or file_name must be provided."
-
-        if not self.log_file.exists():
-            return "Log file does not exist."
-
-        with self.log_file.open("r") as f:
-            lines = f.readlines()
-
-        if log_id:
-            for line in lines:
-                log_id_record, timestamp, path = line.strip().split(" | ")
-                if log_id_record == log_id:
-                    return path
-            return "Log ID not found."
-
-        if file_name:
-            last_exact_match = None
-            last_pattern_match = None
-            for line in lines:
-                log_id_record, timestamp, path = line.strip().split(" | ")
-                if Path(path).name == file_name:
-                    last_exact_match = path
-                elif re.search(file_name, Path(path).name):
-                    last_pattern_match = path
-
-            if last_exact_match:
-                return last_exact_match
-            if last_pattern_match:
-                return last_pattern_match
-            return "File name not found."
-
-        return "Either log_id or file_name must be provided."
-
     def get_logs(self) -> list[str]:
-        """Retrieve all logs."""
+        """Retrieve all logs as lines without trailing newlines."""
         if not self.log_file.exists():
             return []
         with self.log_file.open("r") as f:
-            return f.readlines()
+            return [line.rstrip("\n") for line in f]
 
-    def search_logs(self, keyword: str) -> list:
+    def search_logs(self, keyword: str, return_type: str = "log_entry") -> list[str]:
         """Search logs for a specific keyword.
 
         Args:
             keyword (str): Keyword to search for in the logs.
 
         Returns:
-            list: List of log entries containing the keyword.
+            list: List of log entries, log IDs, timestamps, or paths containing the keyword.
         """
-        if not self.log_file.exists():
+        assert return_type in ["log_entry", "log_id", "timestamp", "path"], (
+            "Invalid return type. Must be 'log_entry', 'log_id', 'timestamp', or 'path'."
+        )
+
+        log_entries = [line for line in self.get_logs() if keyword in line]
+        if not log_entries:
             return []
 
-        with self.log_file.open("r") as f:
-            return [line for line in f if keyword in line]
+        if return_type == "log_entry":
+            return log_entries
+        elif return_type == "log_id":
+            return [line.split(" | ")[0] for line in log_entries]
+        elif return_type == "timestamp":
+            return [line.split(" | ")[1] for line in log_entries]
+        elif return_type == "path":
+            return [Path(line.split(" | ")[2]) for line in log_entries]
 
     def backup_logs(self, backup_dir: str):
         """Backup the current log file to the specified directory.
@@ -160,18 +127,21 @@ class FileLogger:
         shutil.copy(str(self.log_file), backup_file)
 
     def clean_logs(self):
-        """Clean the log file of entries where the file path no longer exists."""
+        """Clean the log file of entries where the file path no longer exists, and remove duplicate file log entries (keep only the latest for each path)."""
         if not self.log_file.exists():
             return
 
         with self.log_file.open("r") as f:
             lines = f.readlines()
 
-        valid_lines = []
+        # Keep only the latest entry for each path
+        path_to_line = {}
         for line in lines:
             log_id_record, timestamp, path = line.strip().split(" | ")
             if Path(path).exists():
-                valid_lines.append(line)
+                path_to_line[path] = line  # Overwrite to keep the latest
+
+        valid_lines = list(path_to_line.values())
 
         with self.log_file.open("w") as f:
             f.writelines(valid_lines)
