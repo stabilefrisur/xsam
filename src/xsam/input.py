@@ -6,18 +6,21 @@ from typing import Callable
 
 import pandas as pd
 
-from xsam.logger import ActionLogger, get_file_logger
+from xsam.logger import get_action_logger, get_file_logger
 
 # General logger for actions
-action_logger = ActionLogger()
+action_logger = get_action_logger()
+
 
 class ImportFormat(Enum):
     CSV = "csv"
     XLSX = "xlsx"
     PICKLE = "p"
 
+
 def import_csv(path: Path) -> pd.DataFrame:
     return pd.read_csv(path)
+
 
 def import_xlsx(path: Path) -> pd.DataFrame | dict:
     excel_data = pd.read_excel(path, sheet_name=None)
@@ -26,9 +29,11 @@ def import_xlsx(path: Path) -> pd.DataFrame | dict:
         return next(iter(excel_data.values()))
     return excel_data
 
+
 def import_pickle(path: Path):
     with path.open("rb") as f:
         return pickle.load(f)
+
 
 ImportFunction = Callable[[Path], pd.DataFrame | pd.Series | dict]
 
@@ -37,6 +42,7 @@ IMPORT_FUNCTIONS: dict[str, ImportFunction] = {
     ImportFormat.XLSX.value: import_xlsx,
     ImportFormat.PICKLE.value: import_pickle,
 }
+
 
 def get_importer(file_extension: str) -> ImportFunction:
     """Return the import function for the given file extension."""
@@ -124,15 +130,16 @@ def _import_file(full_path: Path | str):
 def _parse_log_entries(log_entries: list[str]) -> list[dict]:
     parsed_entries = []
     for entry in log_entries:
-        log_id, timestamp, full_path = entry.strip().split(" | ")
-        full_path = Path(full_path)
-        file_extension = full_path.suffix[1:]
+        parts = entry.strip().split(" | ")
+        if len(parts) != 3:
+            continue  # skip malformed lines
+        log_id, timestamp, full_path = parts
         parsed_entries.append(
             {
                 "log_id": log_id,
                 "timestamp": timestamp,
-                "full_path": str(full_path),
-                "file_extension": file_extension,
+                "full_path": Path(full_path),
+                "file_extension": Path(full_path).suffix[1:],
             }
         )
     return parsed_entries

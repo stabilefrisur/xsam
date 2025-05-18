@@ -10,11 +10,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from xsam.constants import TIMESTAMP_FORMAT
-from xsam.logger import ActionLogger, get_file_logger
+from xsam.logger import get_action_logger, get_file_logger
 from xsam.utilities import flatten_dict
 
 # General logger for actions
-action_logger = ActionLogger()
+action_logger = get_action_logger()
 
 
 class ExportFormat(Enum):
@@ -84,7 +84,7 @@ def export_obj(
 
     try:
         export_function(obj, full_path)
-        file_logger.log_file_path(str(full_path))
+        file_logger.log_a_file(str(full_path))
     except (PermissionError, OSError) as e:
         # Handle errors by exporting to a temporary directory
         temp_dir = Path(tempfile.gettempdir())
@@ -94,7 +94,7 @@ def export_obj(
             f"Exporting to temporary directory: {temp_path}"
         )
         export_function(obj, temp_path)
-        file_logger.log_file_path(str(temp_path))
+        file_logger.log_a_file(str(temp_path))
 
 
 def export_csv(obj, full_path: Path) -> None:

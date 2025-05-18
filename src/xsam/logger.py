@@ -9,67 +9,79 @@ from xsam.constants import TIMESTAMP_FORMAT, TIMESTAMP_FORMAT_LOG
 
 
 class ActionLogger:
-    """A class to log actions to standard output."""
+    """A singleton class to log actions to standard output and to a log file using standard logging."""
 
     _instance = None
+    log_file = None
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            cls._instance = super(ActionLogger, cls).__new__(cls, *args, **kwargs)
+            cls._instance = super(ActionLogger, cls).__new__(cls)
         return cls._instance
-
-    def __init__(self):
-        if not hasattr(self, "initialized"):
-            self.logger = logging.getLogger("ActionLogger")
-            self.logger.setLevel(logging.INFO)
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-            # Don't propagate to the root logger
-            self.logger.propagate = False
-            self.initialized = True
-
-    def info(self, message: str):
-        """Log an informational message.
-
-        Args:
-            message (str): Message to log.
-        """
-        self.logger.info(message)
-
-    def warning(self, message: str):
-        """Log a warning message.
-
-        Args:
-            message (str): Message to log.
-        """
-        self.logger.warning(message)
-
-
-class FileLogger:
-    """A class to log file paths to a file and retrieve them by log ID or file name."""
-
-    _instances = {}
-
-    def __new__(cls, log_file: str, *args, **kwargs):
-        if log_file not in cls._instances:
-            cls._instances[log_file] = super(FileLogger, cls).__new__(cls)
-        return cls._instances[log_file]
 
     def __init__(self, log_file: str):
         if not hasattr(self, "initialized"):
+            self.logger = logging.getLogger("ActionLogger")
+            self.logger.setLevel(logging.INFO)
+            stream_handler = logging.StreamHandler()
+            formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+            stream_handler.setFormatter(formatter)
+            self.logger.addHandler(stream_handler)
+            self.logger.propagate = False
             self.log_file = Path(log_file).with_suffix(".log")
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
-            self.logger = logging.getLogger(f"FileLogger_{log_file}")
+            file_handler = logging.FileHandler(self.log_file)
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
+            self.initialized = True
+
+    def info(self, message: str):
+        self.logger.info(message)
+
+    def warning(self, message: str):
+        self.logger.warning(message)
+
+    def error(self, message: str):
+        self.logger.error(message)
+
+    def critical(self, message: str):
+        self.logger.critical(message)
+
+    def debug(self, message: str):
+        self.logger.debug(message)
+
+    def get_logs(self) -> list[str]:
+        """Retrieve all logs as lines without trailing newlines."""
+        if not self.log_file.exists():
+            return []
+        with self.log_file.open("r") as f:
+            return [line.rstrip("\n") for line in f]
+
+
+class FileLogger:
+    """A singleton class to log file paths to a log file and retrieve them by log ID or file name."""
+
+    _instance = None
+    log_file = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(FileLogger, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, log_file: str):
+        if not hasattr(self, "initialized"):
+            self.logger = logging.getLogger("FileLogger")
             self.logger.setLevel(logging.INFO)
+            self.log_file = Path(log_file).with_suffix(".log")
+            self.log_file.parent.mkdir(parents=True, exist_ok=True)
             handler = logging.FileHandler(self.log_file)
             formatter = logging.Formatter("%(message)s")
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.initialized = True
 
-    def log_file_path(self, file_path: str):
+    def log_a_file(self, file_path: str):
         """Log the file path to the log file.
 
         Args:
@@ -147,24 +159,68 @@ class FileLogger:
             f.writelines(valid_lines)
 
 
-file_logger = None
+_action_logger = None
+
+
+def get_action_logger():
+    """Retrieve the current ActionLogger instance."""
+    global _action_logger
+    if _action_logger is None:
+        default_log_path = Path.home() / ".logs" / "action_log.log"
+        custom_log_path = Path(os.getenv("XSAM_LOG_PATH", default_log_path))
+        _action_logger = ActionLogger(log_file=custom_log_path)
+    return _action_logger
+
+
+_file_logger = None
 
 
 def get_file_logger():
     """Retrieve the current FileLogger instance."""
-    # Singleton pattern to ensure only one instance of FileLogger exists
-    global file_logger
-    if file_logger is None:
+    global _file_logger
+    if _file_logger is None:
         default_log_path = Path.home() / ".logs" / "file_log.log"
         custom_log_path = Path(os.getenv("XSAM_LOG_PATH", default_log_path))
-        file_logger = FileLogger(custom_log_path)
-    return file_logger
+        _file_logger = FileLogger(log_file=custom_log_path)
+    return _file_logger
 
 
-def set_log_path(new_path: Path | str):
-    """Set a custom path for the log file."""
-    global file_logger
-    file_logger = FileLogger(Path(new_path))
-    # General logger for actions
-    action_logger = ActionLogger()
-    action_logger.info(f"Log file path updated to {new_path}")
+def set_log_path(new_dir: Path | str):
+    global _file_logger, _action_logger
+    # Always reset the singletons and their class-level _instance attributes
+    if _file_logger is not None:
+        _file_logger.logger.handlers.clear()
+        _file_logger.initialized = False
+    if _action_logger is not None:
+        _action_logger.logger.handlers.clear()
+        _action_logger.initialized = False
+    _file_logger = None
+    _action_logger = None
+    FileLogger._instance = None
+    ActionLogger._instance = None
+    # Now re-instantiate
+    new_dir = Path(new_dir)
+    new_dir.mkdir(parents=True, exist_ok=True)
+    action_log_path = new_dir / "action_log.log"
+    file_log_path = new_dir / "file_log.log"
+    _action_logger = ActionLogger(log_file=action_log_path)
+    _file_logger = FileLogger(log_file=file_log_path)
+
+
+if __name__ == "__main__":
+    # Example usage
+    # set_log_path("logs")
+
+    action_logger = get_action_logger()
+    action_logger.info("This is an info message.")
+    action_logger.warning("This is a warning message.")
+    action_logger.error("This is an error message.")
+    action_logger.critical("This is a critical message.")
+    action_logger.debug("This is a debug message.")
+    print(action_logger.get_logs())
+    print(action_logger.log_file)
+
+    file_logger = get_file_logger()
+    file_logger.log_a_file("example.txt")
+    print(file_logger.get_logs())
+    print(file_logger.log_file)
