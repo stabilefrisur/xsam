@@ -7,6 +7,7 @@ from typing import Callable
 import pandas as pd
 
 from xsam.logger import get_action_logger, get_file_logger
+from xsam.constants import LOG_DELIMITER
 
 # General logger for actions
 action_logger = get_action_logger()
@@ -130,7 +131,7 @@ def _import_file(full_path: Path | str):
 def _parse_log_entries(log_entries: list[str]) -> list[dict]:
     parsed_entries = []
     for entry in log_entries:
-        parts = entry.strip().split(" | ")
+        parts = entry.strip().split(LOG_DELIMITER)
         if len(parts) != 3:
             continue  # skip malformed lines
         log_id, timestamp, full_path = parts

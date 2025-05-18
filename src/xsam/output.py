@@ -58,7 +58,7 @@ def export_obj(
     file_extension: str = ExportFormat.PICKLE.value,
     file_path: Path | str = Path.home() / "output",
     add_timestamp: bool = True,
-) -> None:
+) -> str:
     """Export a DataFrame, Series, dictionary, or Figure to a file.
 
     This function will attempt to export the object to the specified directory. If the export fails due to a permission or OS error, it will retry in the system's temporary directory and log a warning.
@@ -69,6 +69,9 @@ def export_obj(
         file_extension (str): File extension. Supported extensions are 'csv', 'xlsx', 'p', 'png', and 'svg'. Default is 'p'.
         file_path (Path | str): Directory path where the file will be exported. Default is 'output'.
         add_timestamp (bool): Whether to add a timestamp to the file name. Default is True.
+
+    Returns:
+        str: The full file log entry of the exported file.
 
     Raises:
         ValueError: If the extension is not supported.
@@ -84,7 +87,7 @@ def export_obj(
 
     try:
         export_function(obj, full_path)
-        file_logger.log_a_file(str(full_path))
+        log_entry = file_logger.log_a_file(str(full_path))
     except (PermissionError, OSError) as e:
         # Handle errors by exporting to a temporary directory
         temp_dir = Path(tempfile.gettempdir())
@@ -94,7 +97,9 @@ def export_obj(
             f"Exporting to temporary directory: {temp_path}"
         )
         export_function(obj, temp_path)
-        file_logger.log_a_file(str(temp_path))
+        log_entry = file_logger.log_a_file(str(temp_path))
+
+    return log_entry
 
 
 def export_csv(obj, full_path: Path) -> None:

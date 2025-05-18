@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from xsam.constants import TIMESTAMP_FORMAT, TIMESTAMP_FORMAT_LOG
+from xsam.constants import TIMESTAMP_FORMAT, TIMESTAMP_FORMAT_LOG, LOG_DELIMITER
 
 
 class ActionLogger:
@@ -90,8 +90,9 @@ class FileLogger:
         log_id = uuid.uuid4()
         timestamp = datetime.now(timezone.utc).strftime(TIMESTAMP_FORMAT_LOG)
         absolute_path = str(Path(file_path).resolve())
-        message = f"{log_id} | {timestamp} | {absolute_path}"
-        self.logger.info(message)
+        log_entry = LOG_DELIMITER.join([str(log_id), timestamp, absolute_path])
+        self.logger.info(log_entry)
+        return log_entry
 
     def get_logs(self) -> list[str]:
         """Retrieve all logs as lines without trailing newlines."""
@@ -120,11 +121,11 @@ class FileLogger:
         if return_type == "log_entry":
             return log_entries
         elif return_type == "log_id":
-            return [line.split(" | ")[0] for line in log_entries]
+            return [line.split(LOG_DELIMITER)[0] for line in log_entries]
         elif return_type == "timestamp":
-            return [line.split(" | ")[1] for line in log_entries]
+            return [line.split(LOG_DELIMITER)[1] for line in log_entries]
         elif return_type == "path":
-            return [Path(line.split(" | ")[2]) for line in log_entries]
+            return [Path(line.split(LOG_DELIMITER)[2]) for line in log_entries]
 
     def backup_logs(self, backup_dir: str):
         """Backup the current log file to the specified directory.
@@ -149,7 +150,7 @@ class FileLogger:
         # Keep only the latest entry for each path
         path_to_line = {}
         for line in lines:
-            log_id_record, timestamp, path = line.strip().split(" | ")
+            log_id_record, timestamp, path = line.strip().split(LOG_DELIMITER)
             if Path(path).exists():
                 path_to_line[path] = line  # Overwrite to keep the latest
 
