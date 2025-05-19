@@ -1,4 +1,3 @@
-import functools
 import pickle
 import tempfile
 from datetime import datetime
