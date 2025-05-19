@@ -1,5 +1,4 @@
 import pickle
-import re
 from enum import Enum
 from pathlib import Path
 from typing import Callable
@@ -7,7 +6,6 @@ from typing import Callable
 import pandas as pd
 
 from xsam.logger import get_action_logger, get_file_logger
-from xsam.constants import LOG_DELIMITER
 
 # General logger for actions
 action_logger = get_action_logger()
@@ -31,7 +29,7 @@ def import_xlsx(path: Path) -> pd.DataFrame | dict:
     return excel_data
 
 
-def import_pickle(path: Path):
+def import_pickle(path: Path) -> any:
     with path.open("rb") as f:
         return pickle.load(f)
 
@@ -57,7 +55,7 @@ def get_importer(file_extension: str) -> ImportFunction:
 
 
 def import_obj(
-    file_name: str = None,
+    file_name: str | list[str] = None,
     file_extension: str = None,
     file_path: Path | str = None,
     log_id: str = None,
@@ -67,7 +65,7 @@ def import_obj(
     Args:
         file_name (str): File name without extension.
         file_extension (str): File extension. Supported extensions are 'csv', 'xlsx', and 'p'.
-        full_file_path (Path | str): Full file path including the file name and extension.
+        file_path (Path | str): Full file path including the file name and extension.
         log_id (str): Unique file ID from the log file.
 
     Returns:
@@ -78,20 +76,16 @@ def import_obj(
         FileNotFoundError: If the specified path does not exist.
     """
     file_logger = get_file_logger()
-    logs = file_logger.get_logs()
-    log_entries = _parse_log_entries(logs)
-
     if file_path:
         return _import_from_full_path(file_path)
-    elif file_name or file_extension:
-        return _import_from_name_and_extension(log_entries, file_name, file_extension)
-    elif log_id:
-        return _import_from_log_id(log_entries, log_id)
-    else:
-        raise ValueError("Insufficient parameters provided for importing the file.")
+    log_entry = _find_log_entry(file_logger, file_name, file_extension, log_id)
+    if log_entry:
+        return _import_file(log_entry)
+    raise FileNotFoundError("No matching file found in the log.")
 
 
-def _import_from_full_path(full_path: Path | str):
+def _import_from_full_path(full_path: Path | str) -> pd.DataFrame | pd.Series | dict:
+    """Import a file from the given full path."""
     path = Path(full_path)
     if path.exists():
         return _import_file(path)
@@ -99,48 +93,31 @@ def _import_from_full_path(full_path: Path | str):
         raise FileNotFoundError(f"The file {full_path} does not exist.")
 
 
-def _import_from_name_and_extension(log_entries, file_name, file_extension):
-    pattern = re.compile(file_name) if file_name else None
-    matches = [
-        entry
-        for entry in log_entries
-        if (not pattern or pattern.search(Path(entry["full_path"]).stem))
-        and (not file_extension or entry["file_extension"] == file_extension)
-    ]
-    if matches:
-        return _import_file(matches[-1]["full_path"])  # Return only the latest match
-    else:
-        raise FileNotFoundError("No matching file found in the log.")
+def _find_log_entry(file_logger, file_name, file_extension, log_id) -> str | None:
+    """Find the log entry for the given file name, extension, or log ID."""
+    # Search by log_id
+    if log_id:
+        log_entries = file_logger.search_logs(log_id, return_type="path")
+        if log_entries:
+            return log_entries[-1]
+        return None
+    # Search by file_name and/or extension
+    keywords = []
+    if file_name:
+        file_name = [file_name] if isinstance(file_name, str) else file_name
+        keywords.extend(file_name)
+    if file_extension:
+        keywords.append(file_extension)
+    log_entries = file_logger.search_logs(keywords, return_type="path") if keywords else []
+    if log_entries:
+        return log_entries[-1]
+    return None
 
 
-def _import_from_log_id(log_entries, log_id):
-    for entry in reversed(log_entries):
-        if entry["log_id"] == log_id:
-            return _import_file(entry["full_path"])
-    raise FileNotFoundError(f"No file found with log_id {log_id}.")
-
-
-def _import_file(full_path: Path | str):
+def _import_file(full_path: Path | str) -> pd.DataFrame | pd.Series | dict:
+    """Import a file from the given path."""
     path = Path(full_path)
     file_extension = path.suffix[1:]
     action_logger.info(f"Importing {file_extension} from {path}")
     importer = get_importer(file_extension)
     return importer(path)
-
-
-def _parse_log_entries(log_entries: list[str]) -> list[dict]:
-    parsed_entries = []
-    for entry in log_entries:
-        parts = entry.strip().split(LOG_DELIMITER)
-        if len(parts) != 3:
-            continue  # skip malformed lines
-        log_id, timestamp, full_path = parts
-        parsed_entries.append(
-            {
-                "log_id": log_id,
-                "timestamp": timestamp,
-                "full_path": Path(full_path),
-                "file_extension": Path(full_path).suffix[1:],
-            }
-        )
-    return parsed_entries

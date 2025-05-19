@@ -182,31 +182,3 @@ EXPORT_FUNCTIONS: dict[str, ExportFunction] = {
     ExportFormat.PNG.value: export_png,
     ExportFormat.SVG.value: export_svg,
 }
-
-
-def export_decorator(
-    export: bool = True,
-    file_name: str = "output",
-    file_extension: str = "p",
-    file_path: Path | str = Path("output"),
-    add_timestamp: bool = True,
-):
-    """Decorator to export the output of a function."""
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            result = func(*args, **kwargs)
-            if export:
-                export(
-                    result,
-                    file_name=kwargs.get("file_name", file_name),
-                    file_extension=kwargs.get("file_extension", file_extension),
-                    file_path=kwargs.get("file_path", file_path),
-                    add_timestamp=kwargs.get("add_timestamp", add_timestamp),
-                )
-            return result
-
-        return wrapper
-
-    return decorator

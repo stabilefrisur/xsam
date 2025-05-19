@@ -81,7 +81,7 @@ class FileLogger:
             self.logger.addHandler(handler)
             self.initialized = True
 
-    def log_a_file(self, file_path: str):
+    def log_a_file(self, file_path: str) -> str:
         """Log the file path to the log file.
 
         Args:
@@ -101,20 +101,25 @@ class FileLogger:
         with self.log_file.open("r") as f:
             return [line.rstrip("\n") for line in f]
 
-    def search_logs(self, keyword: str, return_type: str = "log_entry") -> list[str]:
-        """Search logs for a specific keyword.
+    def search_logs(self, keywords: str | list[str], return_type: str = "log_entry") -> list[str]:
+        """Search logs for one or more keywords. Only entries containing all keywords are returned.
 
         Args:
-            keyword (str): Keyword to search for in the logs.
+            keyword (str | list[str]): Keyword or list of keywords to search for in the logs.
 
         Returns:
-            list: List of log entries, log IDs, timestamps, or paths containing the keyword.
+            list: List of log entries, log IDs, timestamps, or paths containing all of the keywords.
         """
         assert return_type in ["log_entry", "log_id", "timestamp", "path"], (
             "Invalid return type. Must be 'log_entry', 'log_id', 'timestamp', or 'path'."
         )
 
-        log_entries = [line for line in self.get_logs() if keyword in line]
+        keywords = [keywords] if isinstance(keywords, str) else keywords
+
+        log_entries = [
+            line for line in self.get_logs()
+            if all(k in line for k in keywords)
+        ]
         if not log_entries:
             return []
 
@@ -163,7 +168,7 @@ class FileLogger:
 _action_logger = None
 
 
-def get_action_logger():
+def get_action_logger() -> ActionLogger:
     """Retrieve the current ActionLogger instance."""
     global _action_logger
     if _action_logger is None:
@@ -176,7 +181,7 @@ def get_action_logger():
 _file_logger = None
 
 
-def get_file_logger():
+def get_file_logger() -> FileLogger:
     """Retrieve the current FileLogger instance."""
     global _file_logger
     if _file_logger is None:

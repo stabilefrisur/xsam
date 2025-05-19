@@ -89,10 +89,10 @@ def test_file_logger_log_and_search(file_logger):
     log_entry = logs[0].strip().split(" | ")
     assert len(log_entry) == 3
     assert log_entry[2].endswith(file_path)
-    retrieved_path = file_logger.search_logs(keyword=file_path, return_type="path")[-1]
+    retrieved_path = file_logger.search_logs(keywords=file_path, return_type="path")[-1]
     assert retrieved_path.name == file_path
-    log_id = file_logger.search_logs(keyword=file_path, return_type="log_id")[-1]
-    retrieved_path2 = file_logger.search_logs(keyword=log_id, return_type="path")[-1]
+    log_id = file_logger.search_logs(keywords=file_path, return_type="log_id")[-1]
+    retrieved_path2 = file_logger.search_logs(keywords=log_id, return_type="path")[-1]
     assert str(retrieved_path2).endswith(file_path)
 
 
