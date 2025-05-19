@@ -24,7 +24,7 @@ class ActionLogger:
             self.logger = logging.getLogger("ActionLogger")
             self.logger.setLevel(logging.INFO)
             stream_handler = logging.StreamHandler()
-            formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+            formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", datefmt=TIMESTAMP_FORMAT_LOG)
             stream_handler.setFormatter(formatter)
             self.logger.addHandler(stream_handler)
             self.logger.propagate = False
@@ -215,7 +215,7 @@ def set_log_path(new_dir: Path | str):
 
 if __name__ == "__main__":
     # Example usage
-    # set_log_path("logs")
+    set_log_path("logs")
 
     action_logger = get_action_logger()
     action_logger.info("This is an info message.")
