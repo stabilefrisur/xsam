@@ -10,7 +10,7 @@ import pandas as pd
 
 from xsam.constants import TIMESTAMP_FORMAT
 from xsam.logger import get_action_logger, get_file_logger
-from xsam.utilities import flatten_dict
+from xsam.utilities import flatten_dict, make_windows_compliant_filename, make_excel_compliant_sheetname
 
 # General logger for actions
 action_logger = get_action_logger()
@@ -78,6 +78,8 @@ def export_obj(
     path = Path(file_path)
     path.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime(TIMESTAMP_FORMAT)
+    # Sanitize file_name for Windows compliance
+    file_name = make_windows_compliant_filename(file_name)
     file_name = f"{timestamp}_{file_name}" if add_timestamp else file_name
     full_path = path / f"{file_name}.{file_extension}"
 
@@ -108,8 +110,10 @@ def export_csv(obj, full_path: Path) -> None:
     elif isinstance(obj, dict):
         flattened_dict = flatten_dict(obj)
         for key, value in flattened_dict.items():
+            # Ensure Windows-compliant file name for each key
+            safe_key = make_windows_compliant_filename(key)
+            key_file_path = full_path.with_name(f"{full_path.stem}_{safe_key}{full_path.suffix}")
             if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
-                key_file_path = full_path.with_name(f"{full_path.stem}_{key.replace('.', '_')}{full_path.suffix}")
                 value.to_csv(key_file_path, index=True, encoding="utf-8")
                 action_logger.info(f"CSV exported to {key_file_path}")
             else:
@@ -127,12 +131,14 @@ def export_xlsx(obj, full_path: Path) -> None:
         flattened_dict = flatten_dict(obj)
         with pd.ExcelWriter(full_path) as writer:
             for key, value in flattened_dict.items():
+                # Ensure Excel-compliant sheet name
+                safe_key = make_excel_compliant_sheetname(key)
                 if isinstance(value, pd.DataFrame):
                     value.to_excel(
-                        writer, sheet_name=key[:31], index=True
-                    )  # Excel sheet names are limited to 31 characters
+                        writer, sheet_name=safe_key, index=True
+                    )
                 elif isinstance(value, pd.Series):
-                    value.to_frame().to_excel(writer, sheet_name=key[:31], index=True)
+                    value.to_frame().to_excel(writer, sheet_name=safe_key, index=True)
                 else:
                     raise TypeError("Unsupported type in dictionary for xlsx format")
     else:
