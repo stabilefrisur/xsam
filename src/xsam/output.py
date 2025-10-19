@@ -63,7 +63,12 @@ def export_obj(
     This function will attempt to export the object to the specified directory. If the export fails due to a permission or OS error, it will retry in the system's temporary directory and log a warning.
 
     Args:
-        obj (Any): Object to export. The pickle format ('p') accepts any type. Other formats (csv, xlsx, png, svg) have specific type requirements.
+        obj (Any): Object to export. Type requirements by format:
+            - 'p' (pickle): Any type (default)
+            - 'csv': pd.DataFrame, pd.Series, or dict with DataFrame/Series values
+            - 'xlsx': pd.DataFrame, pd.Series, or dict with DataFrame/Series values
+            - 'png': plt.Figure or dict with Figure values
+            - 'svg': plt.Figure or dict with Figure values
         file_name (str): File name without extension.
         file_extension (str): File extension. Supported extensions are 'csv', 'xlsx', 'p', 'png', and 'svg'. Default is 'p'.
         file_path (Path | str): Directory path where the file will be exported. Default is 'output'.
