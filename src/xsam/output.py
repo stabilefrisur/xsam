@@ -3,7 +3,7 @@ import tempfile
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -24,7 +24,7 @@ class ExportFormat(Enum):
     SVG = "svg"
 
 
-ExportFunction = Callable[[pd.DataFrame | pd.Series | dict | plt.Figure, Path], None]
+ExportFunction = Callable[[Any, Path], None]
 
 
 def get_exporter(file_extension: str) -> ExportFunction:
@@ -52,18 +52,23 @@ def get_exporter(file_extension: str) -> ExportFunction:
 
 
 def export_obj(
-    obj: pd.DataFrame | pd.Series | dict | plt.Figure,
+    obj: Any,
     file_name: str,
     file_extension: str = ExportFormat.PICKLE.value,
     file_path: Path | str = Path.home() / "output",
     add_timestamp: bool = True,
 ) -> str:
-    """Export a DataFrame, Series, dictionary, or Figure to a file.
+    """Export an object to a file.
 
     This function will attempt to export the object to the specified directory. If the export fails due to a permission or OS error, it will retry in the system's temporary directory and log a warning.
 
     Args:
-        obj (pd.DataFrame | pd.Series | dict | plt.Figure): Object to export.
+        obj (Any): Object to export. Type requirements by format:
+            - 'p' (pickle): Any type (default)
+            - 'csv': pd.DataFrame, pd.Series, or dict with DataFrame/Series values
+            - 'xlsx': pd.DataFrame, pd.Series, or dict with DataFrame/Series values
+            - 'png': plt.Figure or dict with Figure values
+            - 'svg': plt.Figure or dict with Figure values
         file_name (str): File name without extension.
         file_extension (str): File extension. Supported extensions are 'csv', 'xlsx', 'p', 'png', and 'svg'. Default is 'p'.
         file_path (Path | str): Directory path where the file will be exported. Default is 'output'.
@@ -74,6 +79,7 @@ def export_obj(
 
     Raises:
         ValueError: If the extension is not supported.
+        TypeError: If the object type is not supported for the specified format.
     """
     path = Path(file_path)
     path.mkdir(parents=True, exist_ok=True)
