@@ -61,11 +61,11 @@ python -m xsam.main
 ```
 
 ### Saving Data
-You can save a DataFrame, Series, dictionary, or Figure to a file using the `save` function:
+You can save a DataFrame, Series, dictionary, or Figure to a file using the `export_obj` function:
 ```python
 from pathlib import Path
 import pandas as pd
-from xsam.output import save
+from xsam.output import export_obj
 
 # Create a DataFrame
 df = pd.DataFrame({
@@ -73,15 +73,15 @@ df = pd.DataFrame({
     'B': [4, 5, 6]
 })
 
-# Save the DataFrame to a CSV filev
-save(df, 'data', 'csv', Path('data'))
+# Save the DataFrame to a CSV file
+export_obj(df, 'data', file_extension='csv', file_path=Path('data'))
 ```
 
 #### Additional Examples
 1. **Save a Series to a Pickle File:**
     ```python
     series = pd.Series([1, 2, 3, 4, 5])
-    save(series, 'series_data', 'pickle', Path('data'))
+    export_obj(series, 'series_data', file_extension='p', file_path=Path('data'))
     ```
 
 2. **Save a Dictionary of DataFrames to an Excel File:**
@@ -90,7 +90,7 @@ save(df, 'data', 'csv', Path('data'))
         'Sheet1': pd.DataFrame({'A': [1, 2], 'B': [3, 4]}),
         'Sheet2': pd.DataFrame({'C': [5, 6], 'D': [7, 8]})
     }
-    save(data_dict, 'data_dict', 'xlsx', Path('data'))
+    export_obj(data_dict, 'data_dict', file_extension='xlsx', file_path=Path('data'))
     ```
 
 3. **Save a Matplotlib Figure to a SVG File:**
@@ -99,46 +99,46 @@ save(df, 'data', 'csv', Path('data'))
 
     fig, ax = plt.subplots()
     ax.plot([1, 2, 3], [4, 5, 6])
-    save(fig, 'figure', 'svg', Path('data'))
+    export_obj(fig, 'figure', file_extension='svg', file_path=Path('data'))
     ```
 
 ### Loading Data
-You can load a DataFrame, Series, or dictionary from a file using the `load` function:
+You can load a DataFrame, Series, or dictionary from a file using the `import_obj` function:
 ```python
-from xsam.input import load
+from xsam.input import import_obj
 
 # Load the latest file in the log
-loaded_df = load(file_name='data')
+loaded_df = import_obj(file_name='data')
 
 # Print the loaded DataFrame
 print(loaded_df)
 ```
 
-#### Arguments for `load`
+#### Arguments for `import_obj`
 - `file_name` (str): The name of the file to load. If not provided, the function will search the log for the latest file.
-- `file_format` (str): The format of the file to load. Supported formats are 'csv', 'xlsx', and 'pickle'.
-- `full_file_path` (Path | str): The path to the file. If not provided, the function will search the log for the latest file.
+- `file_extension` (str): The extension of the file to load. Supported extensions are 'csv', 'xlsx', and 'p'.
+- `file_path` (Path | str): The path to the file. If provided, the function will load the file directly from this path.
 - `log_id` (str): The unique file ID from the log file. If provided, the function will use this to locate the file.
 
 #### Examples
 1. **Load by Name:**
     ```python
-    loaded_df = load(file_name='data')
+    loaded_df = import_obj(file_name='data')
     ```
 
-2. **Load by Name and Format:**
+2. **Load by Name and Extension:**
     ```python
-    loaded_df = load(file_name='data', file_format='csv')
+    loaded_df = import_obj(file_name='data', file_extension='csv')
     ```
 
 3. **Load by Full File Path:**
     ```python
-    loaded_df = load(full_file_path='data/data.csv')
+    loaded_df = import_obj(file_path='data/data.csv')
     ```
 
 4. **Load by Log ID:**
     ```python
-    loaded_df = load(log_id='unique-log-id')
+    loaded_df = import_obj(log_id='unique-log-id')
     ```
 
 ### Aggregating Fields by Label
