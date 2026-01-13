@@ -107,7 +107,7 @@ def _find_log_entry(file_logger, file_name, file_extension, log_id) -> str | Non
         file_name = [file_name] if isinstance(file_name, str) else file_name
         keywords.extend(file_name)
     if file_extension:
-        keywords.append(file_extension)
+        keywords.append("." + file_extension)
     log_entries = file_logger.search_logs(keywords, return_type="path") if keywords else []
     if log_entries:
         return log_entries[-1]
